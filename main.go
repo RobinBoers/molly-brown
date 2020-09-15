@@ -69,6 +69,9 @@ func main() {
 		}
 	}()
 
+	// Restrict access to the files specified in config
+	enableSecurityRestrictions(config, errorLog)
+
 	// Infinite serve loop
 	for {
 		conn, err := listener.Accept()
