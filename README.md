@@ -59,6 +59,12 @@ Molly Brown only has a single dependency beyond the Go standard
 library, which is [this TOML parsing
 library](https://github.com/BurntSushi/toml).
 
+The OpenBSD implementation also uses the [golang.org/x/sys/unix
+package](https://godoc.org/golang.org/x/sys/unix) to provide the
+[pledge(2)](https://man.openbsd.org/pledge.2) and
+[unveil(2)](https://man.openbsd.org/unveil.2) system calls to provide
+additional security features.
+
 ## Installation
 
 The easiest way for now to install Molly Brown is to use the standard
