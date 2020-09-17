@@ -9,7 +9,7 @@ import (
 // Restrict access to the files specified in config in an OS-dependent way.
 // The OpenBSD implementation uses pledge(2) and unveil(2) to restrict the
 // operations available to the molly brown executable. Please note that (S)CGI
-// processes that molly brown spawns or communicates with are unrestristricted
+// processes that molly brown spawns or communicates with are unrestricted
 // and should pledge their own restrictions and unveil their own files.
 func enableSecurityRestrictions(config Config, errorLog *log.Logger) {
 
