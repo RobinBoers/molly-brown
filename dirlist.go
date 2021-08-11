@@ -42,10 +42,52 @@ func generateDirectoryListing(URL *url.URL, path string, config Config) (string,
 			i, j = j, i
 		}
 		if config.DirectorySort == "Name" {
+			if config.DirectoriesFirst {
+				if files[i].IsDir() {
+					if files[j].IsDir() {
+						return files[i].Name() < files[j].Name()
+					}
+					return true
+				}
+				if files[j].IsDir() {
+					if files[i].IsDir() {
+						return files[i].Name() < files[j].Name()
+					}
+					return false
+				}
+			}
 			return files[i].Name() < files[j].Name()
 		} else if config.DirectorySort == "Size" {
+			if config.DirectoriesFirst {
+				if files[i].IsDir() {
+					if files[j].IsDir() {
+						return files[i].Size() < files[j].Size()
+					}
+					return true
+				}
+				if files[j].IsDir() {
+					if files[i].IsDir() {
+						return files[i].Size() < files[j].Size()
+					}
+					return false
+				}
+			}
 			return files[i].Size() < files[j].Size()
 		} else if config.DirectorySort == "Time" {
+			if config.DirectoriesFirst {
+				if files[i].IsDir() {
+					if files[j].IsDir() {
+						return files[i].ModTime().Before(files[j].ModTime())
+					}
+					return true
+				}
+				if files[j].IsDir() {
+					if files[i].IsDir() {
+						return files[i].ModTime().Before(files[j].ModTime())
+					}
+					return false
+				}
+			}
 			return files[i].ModTime().Before(files[j].ModTime())
 		}
 		return false // Should not happen

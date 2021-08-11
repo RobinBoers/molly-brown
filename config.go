@@ -29,6 +29,7 @@ type Config struct {
 	SCGIPaths        map[string]string
 	CertificateZones map[string][]string
 	DirectorySort    string
+	DirectoriesFirst bool
 	DirectoryReverse bool
 	DirectoryTitles  bool
 }
@@ -42,6 +43,7 @@ type MollyFile struct {
 	DefaultLang      string
 	DefaultEncoding  string
 	DirectorySort    string
+	DirectoriesFirst bool
 	DirectoryReverse bool
 	DirectoryTitles  bool
 }
@@ -67,6 +69,7 @@ func getConfig(filename string) (Config, error) {
 	config.CGIPaths = make([]string, 0)
 	config.SCGIPaths = make(map[string]string)
 	config.DirectorySort = "Name"
+	config.DirectoriesFirst = false
 
 	// Return defaults if no filename given
 	if filename == "" {
@@ -144,6 +147,7 @@ func parseMollyFiles(path string, config *Config, errorLog *log.Logger) {
 	mollyFile.DefaultLang = config.DefaultLang
 	mollyFile.DefaultEncoding = config.DefaultEncoding
 	mollyFile.DirectorySort = config.DirectorySort
+	mollyFile.DirectoriesFirst = config.DirectoriesFirst
 	mollyFile.DirectoryReverse = config.DirectoryReverse
 	mollyFile.DirectoryTitles = config.DirectoryTitles
 	// Build list of directories to check
@@ -182,6 +186,7 @@ func parseMollyFiles(path string, config *Config, errorLog *log.Logger) {
 		config.DefaultLang = mollyFile.DefaultLang
 		config.DefaultEncoding = mollyFile.DefaultEncoding
 		config.DirectorySort = mollyFile.DirectorySort
+		config.DirectoriesFirst = mollyFile.DirectoriesFirst
 		config.DirectoryReverse = mollyFile.DirectoryReverse
 		config.DirectoryTitles = mollyFile.DirectoryTitles
 		for key, value := range mollyFile.TempRedirects {
