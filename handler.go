@@ -193,8 +193,12 @@ func handleRedirectsInner(URL *url.URL, redirects map[string]string, status int,
 			continue
 		}
 		if compiled.MatchString(URL.Path) {
-			URL.Path = compiled.ReplaceAllString(URL.Path, dst)
-			conn.Write([]byte(strStatus + " " + URL.String() + "\r\n"))
+			new_target := compiled.ReplaceAllString(URL.Path, dst)
+			if !strings.HasPrefix(new_target, "gemini://") {
+				URL.Path = new_target
+				new_target = URL.String()
+			}
+			conn.Write([]byte(strStatus + " " + new_target + "\r\n"))
 			log.Status = status
 			return
 		}

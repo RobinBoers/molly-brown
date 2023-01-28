@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"github.com/BurntSushi/toml"
 )
 
@@ -93,6 +94,18 @@ func getConfig(filename string) (Config, error) {
 	}
 	config.CGIPaths = cgiPaths
 
+	// Validate redirects
+	for _, value := range config.TempRedirects {
+		if strings.Contains(value, "://") && !strings.HasPrefix(value, "gemini://") {
+			return config, errors.New("Invalid cross-protocol redirect to " + value)
+		}
+	}
+	for _, value := range config.PermRedirects {
+		if strings.Contains(value, "://") && !strings.HasPrefix(value, "gemini://") {
+			return config, errors.New("Ignoring cross-protocol redirect to " + value)
+		}
+	}
+
 	return config, nil
 }
 
@@ -164,9 +177,17 @@ func parseMollyFiles(path string, config *Config, errorLog *log.Logger) {
 		config.DirectoryReverse = mollyFile.DirectoryReverse
 		config.DirectoryTitles = mollyFile.DirectoryTitles
 		for key, value := range mollyFile.TempRedirects {
+			if strings.Contains(value, "://") && !strings.HasPrefix(value, "gemini://") {
+				errorLog.Println("Ignoring cross-protocol redirect to " + value + " in .molly file " + mollyPath)
+				continue
+			}
 			config.TempRedirects[key] = value
 		}
 		for key, value := range mollyFile.PermRedirects {
+			if strings.Contains(value, "://") && !strings.HasPrefix(value, "gemini://") {
+				errorLog.Println("Ignoring cross-protocol redirect to " + value + " in .molly file " + mollyPath)
+				continue
+			}
 			config.PermRedirects[key] = value
 		}
 		for key, value := range mollyFile.MimeOverrides {
