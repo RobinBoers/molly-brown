@@ -76,6 +76,9 @@ func getConfig(filename string) (Config, error) {
 		return config, err
 	}
 
+	// Force hostname to lowercase
+	config.Hostname = strings.ToLower(config.Hostname)
+
 	// Validate pseudo-enums
 	switch config.DirectorySort {
 	case "Name", "Size", "Time":
