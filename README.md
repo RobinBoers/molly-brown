@@ -229,6 +229,8 @@ examples of the appropriate syntax.
   will be used instead of one inferred from the filename extension.
 * `DefaultLang`: If this option is set, it will be served as the
   `lang` parameter of the MIME type for all `text/gemini` content.
+* `DefaultEncoding`: If this option is set, it will be served as the
+  `charset` parameter of the MIME type for all `text/gemini` content.
 
 ### Directory listings
 
@@ -369,6 +371,7 @@ other settings in `.molly` files will be ignored:
 
 * `CertificateZones`
 * `DefaultLang`
+* `DefaultEncoding`
 * `DirectorySort`
 * `DirectoryReverse`
 * `DirectoryTitles`

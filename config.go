@@ -18,6 +18,7 @@ type Config struct {
 	HomeDocBase      string
 	GeminiExt        string
 	DefaultLang      string
+	DefaultEncoding  string
 	AccessLog        string
 	ErrorLog         string
 	ReadMollyFiles   bool
@@ -39,6 +40,7 @@ type MollyFile struct {
 	MimeOverrides    map[string]string
 	CertificateZones map[string][]string
 	DefaultLang      string
+	DefaultEncoding  string
 	DirectorySort    string
 	DirectoryReverse bool
 	DirectoryTitles  bool
@@ -57,6 +59,7 @@ func getConfig(filename string) (Config, error) {
 	config.HomeDocBase = "users"
 	config.GeminiExt = "gmi"
 	config.DefaultLang = ""
+	config.DefaultEncoding = ""
 	config.AccessLog = "access.log"
 	config.ErrorLog = "error.log"
 	config.TempRedirects = make(map[string]string)
@@ -139,6 +142,7 @@ func parseMollyFiles(path string, config *Config, errorLog *log.Logger) {
 	var mollyFile MollyFile
 	mollyFile.GeminiExt = config.GeminiExt
 	mollyFile.DefaultLang = config.DefaultLang
+	mollyFile.DefaultEncoding = config.DefaultEncoding
 	mollyFile.DirectorySort = config.DirectorySort
 	mollyFile.DirectoryReverse = config.DirectoryReverse
 	mollyFile.DirectoryTitles = config.DirectoryTitles
@@ -176,6 +180,7 @@ func parseMollyFiles(path string, config *Config, errorLog *log.Logger) {
 		// Overwrite main Config using MollyFile
 		config.GeminiExt = mollyFile.GeminiExt
 		config.DefaultLang = mollyFile.DefaultLang
+		config.DefaultEncoding = mollyFile.DefaultEncoding
 		config.DirectorySort = mollyFile.DirectorySort
 		config.DirectoryReverse = mollyFile.DirectoryReverse
 		config.DirectoryTitles = mollyFile.DirectoryTitles
