@@ -36,62 +36,31 @@ func generateDirectoryListing(URL *url.URL, path string, config Config) (string,
 		up := filepath.Dir(URL.Path)
 		listing += fmt.Sprintf("=> %s %s\n", up, "..")
 	}
-	// Sort files
+	// Sort files by criteria first
 	sort.SliceStable(files, func(i, j int) bool {
 		if config.DirectoryReverse {
 			i, j = j, i
 		}
 		if config.DirectorySort == "Name" {
-			if config.DirectorySubdirsFirst {
-				if files[i].IsDir() {
-					if files[j].IsDir() {
-						return files[i].Name() < files[j].Name()
-					}
-					return true
-				}
-				if files[j].IsDir() {
-					if files[i].IsDir() {
-						return files[i].Name() < files[j].Name()
-					}
-					return false
-				}
-			}
 			return files[i].Name() < files[j].Name()
 		} else if config.DirectorySort == "Size" {
-			if config.DirectorySubdirsFirst {
-				if files[i].IsDir() {
-					if files[j].IsDir() {
-						return files[i].Size() < files[j].Size()
-					}
-					return true
-				}
-				if files[j].IsDir() {
-					if files[i].IsDir() {
-						return files[i].Size() < files[j].Size()
-					}
-					return false
-				}
-			}
 			return files[i].Size() < files[j].Size()
 		} else if config.DirectorySort == "Time" {
-			if config.DirectorySubdirsFirst {
-				if files[i].IsDir() {
-					if files[j].IsDir() {
-						return files[i].ModTime().Before(files[j].ModTime())
-					}
-					return true
-				}
-				if files[j].IsDir() {
-					if files[i].IsDir() {
-						return files[i].ModTime().Before(files[j].ModTime())
-					}
-					return false
-				}
-			}
 			return files[i].ModTime().Before(files[j].ModTime())
 		}
 		return false // Should not happen
 	})
+	// Sort directories before file
+	if(config.DirectorySubdirsFirst) {
+		sort.SliceStable(files, func(i, j int) bool {
+			// If i is a dir and j is a file, i < j
+			if files[i].IsDir() && !files[j].IsDir() {
+				return true
+			} else {
+				return false
+			}
+		})
+	}
 	// Format lines
 	for _, file := range files {
 		// Skip dotfiles
