@@ -247,6 +247,10 @@ directory listing:
 * `DirectorySort`: A string specifying how to sort files in
   automatically generated directory listings.  Must be one of "Name",
   "Size" or "Time" (default value "Name").
+* `DirectorySubdirsFirst` (boolean): if true, list subdirectories of
+  the directory being listed before files.  Subdirs and files will be
+  sorted within their respective categories according to
+  `DirectorySort` (default value false).
 * `DirectoryReverse` (boolean): if true, automatically generated
   directory listings will list files in descending order of whatever
   `DirectorySort` is set to (default value false).
@@ -373,6 +377,7 @@ other settings in `.molly` files will be ignored:
 * `DefaultLang`
 * `DefaultEncoding`
 * `DirectorySort`
+* `DirectorySubdirsFirst`
 * `DirectoryReverse`
 * `DirectoryTitles`
 * `GeminiExt`

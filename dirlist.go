@@ -42,7 +42,7 @@ func generateDirectoryListing(URL *url.URL, path string, config Config) (string,
 			i, j = j, i
 		}
 		if config.DirectorySort == "Name" {
-			if config.DirectoriesFirst {
+			if config.DirectorySubdirsFirst {
 				if files[i].IsDir() {
 					if files[j].IsDir() {
 						return files[i].Name() < files[j].Name()
@@ -58,7 +58,7 @@ func generateDirectoryListing(URL *url.URL, path string, config Config) (string,
 			}
 			return files[i].Name() < files[j].Name()
 		} else if config.DirectorySort == "Size" {
-			if config.DirectoriesFirst {
+			if config.DirectorySubdirsFirst {
 				if files[i].IsDir() {
 					if files[j].IsDir() {
 						return files[i].Size() < files[j].Size()
@@ -74,7 +74,7 @@ func generateDirectoryListing(URL *url.URL, path string, config Config) (string,
 			}
 			return files[i].Size() < files[j].Size()
 		} else if config.DirectorySort == "Time" {
-			if config.DirectoriesFirst {
+			if config.DirectorySubdirsFirst {
 				if files[i].IsDir() {
 					if files[j].IsDir() {
 						return files[i].ModTime().Before(files[j].ModTime())
