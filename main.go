@@ -3,17 +3,30 @@ package main
 import (
 	"crypto/tls"
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"strconv"
 )
 
+var VERSION = "0.0.0"
+
 func main() {
 	var conf_file string
+	var version bool
 
-	// Parse args and read config
+	// Parse args
 	flag.StringVar(&conf_file, "c", "", "Path to config file")
+	flag.BoolVar(&version, "v", false, "Print version and exit")
 	flag.Parse()
+
+	// If requested, print version and exit
+	if version {
+		fmt.Println("Molly Brown version", VERSION)
+		os.Exit(0)
+	}
+
+	// Read config
 	if conf_file == "" {
 		_, err := os.Stat("/etc/molly.conf")
 		if err == nil {
