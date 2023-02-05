@@ -92,6 +92,13 @@ func getConfig(filename string) (Config, error) {
 		return config, errors.New("Invalid DirectorySort value.")
 	}
 
+	// Absolutise CGI paths
+	for index, cgiPath := range config.CGIPaths {
+		if(!filepath.IsAbs(cgiPath)) {
+			config.CGIPaths[index] = filepath.Join(config.DocBase, cgiPath)
+		}
+	}
+
 	// Expand CGI paths
 	var cgiPaths []string
 	for _, cgiPath := range config.CGIPaths {

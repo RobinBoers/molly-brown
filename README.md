@@ -319,7 +319,8 @@ startup, database connection etc. on each request).
   single non-separator character and `*` matches a sequence of them -
   if wildcards are used, the path should *not* end in a trailing slash
   - this appears to be a peculiarity of the Go standard library's
-  `filepath.Glob` function.
+  `filepath.Glob` function.  Any non-absolute paths will be resolved
+  relative to `DocBase`.
 * `SCGIPaths`: In this section of the config file, keys are URL path
   prefixes and values are filesystem paths to unix domain sockets.
   Any request for a URL whose path begins with one of the specified
