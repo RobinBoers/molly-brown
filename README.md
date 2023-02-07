@@ -216,7 +216,8 @@ examples of the appropriate syntax.
 * `AccessLog`: Path to access log file (default value `access.log`,
   i.e. in the current wrorking directory).  Note that all intermediate
   directories must exist, Molly Brown won't create them for you.  Set
-  to `-` for logging to `stdout`.
+  to `-` for logging to `stdout`, or to an empty string to disable
+  access logging.
 * `ErrorLog`: Path to error log file.  If set to an empty string (the
   default), Molly Brown will log errors to stderr (where they are
   easily captured by systemd or similar init systems).  If set to a

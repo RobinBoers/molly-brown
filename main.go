@@ -52,6 +52,10 @@ func main() {
 	errorLog := log.New(errorLogFile, "", log.Ldate | log.Ltime)
 
 	var accessLogFile *os.File
+	// TODO: Find a more elegant/portable way to disable logging
+	if config.AccessLog == "" {
+		config.AccessLog = "/dev/null"
+	}
 	if config.AccessLog == "-" {
 		accessLogFile = os.Stdout
 	} else {
