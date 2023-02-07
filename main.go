@@ -64,6 +64,16 @@ func main() {
 	}
 
 	// Read TLS files, create TLS config
+	// Check key file permissions first
+	info, err := os.Stat(config.KeyPath)
+	if err != nil {
+		errorLog.Println("Error opening TLS key file: " + err.Error())
+		log.Fatal(err)
+	}
+	if uint64(info.Mode().Perm())&0444 == 0444 {
+		errorLog.Println("Refusing to use world-readable TLS key file " + config.KeyPath)
+		os.Exit(0)
+	}
 	cert, err := tls.LoadX509KeyPair(config.CertPath, config.KeyPath)
 	if err != nil {
 		errorLog.Println("Error loading TLS keypair: " + err.Error())
