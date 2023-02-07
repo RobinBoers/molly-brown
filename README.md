@@ -217,10 +217,11 @@ examples of the appropriate syntax.
   i.e. in the current wrorking directory).  Note that all intermediate
   directories must exist, Molly Brown won't create them for you.  Set
   to `-` for logging to `stdout`.
-* `ErrorLog`: Path to error log file (default value `error.log`, i.e.
-  in the current wrorking directory).  Note that all intermediate
-  directories must exist, Molly Brown won't create them for you.  Set
-  to `-` for logging to `stdout`.
+* `ErrorLog`: Path to error log file.  If set to an empty string (the
+  default), Molly Brown will log errors to stderr (where they are
+  easily captured by systemd or similar init systems).  If set to a
+  file, note that all intermediate directories must exist, Molly Brown
+  won't create them for you.
 * `GeminiExt`: Files with this extension will be served with a MIME
   type of `text/gemini` (default value `gmi`).
 * `MimeOverrides`: In this section of the config file, keys are path

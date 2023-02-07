@@ -63,7 +63,7 @@ func getConfig(filename string) (Config, error) {
 	config.DefaultLang = ""
 	config.DefaultEncoding = ""
 	config.AccessLog = "access.log"
-	config.ErrorLog = "error.log"
+	config.ErrorLog = ""
 	config.TempRedirects = make(map[string]string)
 	config.PermRedirects = make(map[string]string)
 	config.CGIPaths = make([]string, 0)

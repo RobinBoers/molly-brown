@@ -40,8 +40,8 @@ func main() {
 
 	// Open log files
 	var errorLogFile *os.File
-	if config.ErrorLog == "-" {
-		errorLogFile = os.Stdout
+	if config.ErrorLog == "" {
+		errorLogFile = os.Stderr
 	} else {
 		errorLogFile, err = os.OpenFile(config.ErrorLog, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
