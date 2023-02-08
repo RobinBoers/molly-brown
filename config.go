@@ -92,6 +92,15 @@ func getConfig(filename string) (Config, error) {
 		return config, errors.New("Invalid DirectorySort value.")
 	}
 
+	// Absolutise DocBase
+	if(!filepath.IsAbs(config.DocBase)) {
+		abs, err := filepath.Abs(config.DocBase)
+		if err != nil {
+			return config, err
+		}
+		config.DocBase = abs
+	}
+
 	// Absolutise CGI paths
 	for index, cgiPath := range config.CGIPaths {
 		if(!filepath.IsAbs(cgiPath)) {
@@ -109,6 +118,13 @@ func getConfig(filename string) (Config, error) {
 		cgiPaths = append(cgiPaths, expandedPaths...)
 	}
 	config.CGIPaths = cgiPaths
+
+	// Absolutise SCGI paths
+	for index, scgiPath := range config.SCGIPaths {
+		if(!filepath.IsAbs(scgiPath)) {
+			config.SCGIPaths[index] = filepath.Join(config.DocBase, scgiPath)
+		}
+	}
 
 	// Validate redirects
 	for _, value := range config.TempRedirects {
