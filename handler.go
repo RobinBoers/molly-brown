@@ -15,11 +15,13 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
-func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan LogEntry, errorLog *log.Logger) {
+func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan LogEntry, errorLog *log.Logger, wg *sync.WaitGroup) {
 	defer conn.Close()
+	defer wg.Done()
 	var tlsConn (*tls.Conn) = conn.(*tls.Conn)
 	var log LogEntry
 	log.Time = time.Now()
