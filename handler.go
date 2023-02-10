@@ -262,11 +262,11 @@ func serveFile(path string, log *LogEntry, conn net.Conn, config Config, errorLo
 		mimeType = "application/octet-stream"
 	}
 	// Add charset parameter
-	if strings.HasPrefix(mimeType,"text/gemini") && config.DefaultEncoding != "" {
+	if strings.HasPrefix(mimeType, "text/gemini") && config.DefaultEncoding != "" {
 		mimeType += "; charset=" + config.DefaultEncoding
 	}
 	// Add lang parameter
-	if strings.HasPrefix(mimeType,"text/gemini") && config.DefaultLang != "" {
+	if strings.HasPrefix(mimeType, "text/gemini") && config.DefaultLang != "" {
 		mimeType += "; lang=" + config.DefaultLang
 	}
 

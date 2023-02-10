@@ -2,50 +2,50 @@ package main
 
 import (
 	"errors"
+	"github.com/BurntSushi/toml"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
-	"github.com/BurntSushi/toml"
 )
 
 type Config struct {
-	Port             int
-	Hostname         string
-	CertPath         string
-	KeyPath          string
-	DocBase          string
-	HomeDocBase      string
-	GeminiExt        string
-	DefaultLang      string
-	DefaultEncoding  string
-	AccessLog        string
-	ErrorLog         string
-	ReadMollyFiles   bool
-	TempRedirects    map[string]string
-	PermRedirects    map[string]string
-	MimeOverrides    map[string]string
-	CGIPaths         []string
-	SCGIPaths        map[string]string
-	CertificateZones map[string][]string
-	DirectorySort    string
+	Port                  int
+	Hostname              string
+	CertPath              string
+	KeyPath               string
+	DocBase               string
+	HomeDocBase           string
+	GeminiExt             string
+	DefaultLang           string
+	DefaultEncoding       string
+	AccessLog             string
+	ErrorLog              string
+	ReadMollyFiles        bool
+	TempRedirects         map[string]string
+	PermRedirects         map[string]string
+	MimeOverrides         map[string]string
+	CGIPaths              []string
+	SCGIPaths             map[string]string
+	CertificateZones      map[string][]string
+	DirectorySort         string
 	DirectorySubdirsFirst bool
-	DirectoryReverse bool
-	DirectoryTitles  bool
+	DirectoryReverse      bool
+	DirectoryTitles       bool
 }
 
 type MollyFile struct {
-	GeminiExt        string
-	TempRedirects    map[string]string
-	PermRedirects    map[string]string
-	MimeOverrides    map[string]string
-	CertificateZones map[string][]string
-	DefaultLang      string
-	DefaultEncoding  string
-	DirectorySort    string
+	GeminiExt             string
+	TempRedirects         map[string]string
+	PermRedirects         map[string]string
+	MimeOverrides         map[string]string
+	CertificateZones      map[string][]string
+	DefaultLang           string
+	DefaultEncoding       string
+	DirectorySort         string
 	DirectorySubdirsFirst bool
-	DirectoryReverse bool
-	DirectoryTitles  bool
+	DirectoryReverse      bool
+	DirectoryTitles       bool
 }
 
 func getConfig(filename string) (Config, error) {
@@ -93,7 +93,7 @@ func getConfig(filename string) (Config, error) {
 	}
 
 	// Absolutise DocBase
-	if(!filepath.IsAbs(config.DocBase)) {
+	if !filepath.IsAbs(config.DocBase) {
 		abs, err := filepath.Abs(config.DocBase)
 		if err != nil {
 			return config, err
@@ -103,7 +103,7 @@ func getConfig(filename string) (Config, error) {
 
 	// Absolutise CGI paths
 	for index, cgiPath := range config.CGIPaths {
-		if(!filepath.IsAbs(cgiPath)) {
+		if !filepath.IsAbs(cgiPath) {
 			config.CGIPaths[index] = filepath.Join(config.DocBase, cgiPath)
 		}
 	}
@@ -121,7 +121,7 @@ func getConfig(filename string) (Config, error) {
 
 	// Absolutise SCGI paths
 	for index, scgiPath := range config.SCGIPaths {
-		if(!filepath.IsAbs(scgiPath)) {
+		if !filepath.IsAbs(scgiPath) {
 			config.SCGIPaths[index] = filepath.Join(config.DocBase, scgiPath)
 		}
 	}

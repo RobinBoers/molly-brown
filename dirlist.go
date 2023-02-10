@@ -51,7 +51,7 @@ func generateDirectoryListing(URL *url.URL, path string, config Config) (string,
 		return false // Should not happen
 	})
 	// Sort directories before file
-	if(config.DirectorySubdirsFirst) {
+	if config.DirectorySubdirsFirst {
 		sort.SliceStable(files, func(i, j int) bool {
 			// If i is a dir and j is a file, i < j
 			if files[i].IsDir() && !files[j].IsDir() {

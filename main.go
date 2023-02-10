@@ -52,7 +52,7 @@ func main() {
 		}
 		defer errorLogFile.Close()
 	}
-	errorLog := log.New(errorLogFile, "", log.Ldate | log.Ltime)
+	errorLog := log.New(errorLogFile, "", log.Ldate|log.Ltime)
 
 	var accessLogFile *os.File
 	// TODO: Find a more elegant/portable way to disable logging
@@ -139,10 +139,10 @@ func main() {
 			go handleGeminiRequest(conn, config, accessLogEntries, errorLog, &wg)
 		} else {
 			select {
-				case <-shutdown:
-					running = false
-				default:
-					errorLog.Println("Error accepting connection: " + err.Error())
+			case <-shutdown:
+				running = false
+			default:
+				errorLog.Println("Error accepting connection: " + err.Error())
 			}
 		}
 	}
