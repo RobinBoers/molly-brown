@@ -92,6 +92,12 @@ func main() {
 		ClientAuth:   tls.RequestClientCert,
 	}
 
+	// Chdir to / so we don't block any mountpoints
+	err = os.Chdir("/")
+	if err != nil {
+		errorLog.Println("Could not change working directory to /: " + err.Error())
+	}
+
 	// Create TLS listener
 	listener, err := tls.Listen("tcp", ":"+strconv.Itoa(config.Port), tlscfg)
 	if err != nil {
