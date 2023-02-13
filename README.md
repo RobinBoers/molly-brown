@@ -328,7 +328,10 @@ system call.  In this situation, Molly Brown will refuse to run as
 superuser/root.  It will run as any other user, but CGI processes will
 necessary run as the same user as the server and so unavoidably will
 have access to sensitive files.  You should proceed with extreme
-caution and only use carefully vetted CGI programs (or upgrade Go).
+caution and only use carefully vetted CGI programs.  Consider using
+systemd's ability to chroot a non-privileged process at the moment of
+startup to at least confine the risk to Molly Brown's sensitive files
+and not the entire system's.
 
 Molly Brown will compile on non-unix operating systems and is known to
 run on Plan9, for example, but no special security measures are taken
