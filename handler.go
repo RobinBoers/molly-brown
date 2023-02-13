@@ -19,6 +19,22 @@ import (
 	"time"
 )
 
+// Utility function below borrowed from
+// https://stackoverflow.com/questions/28024731/check-if-given-path-is-a-subdirectory-of-another-in-golang
+func isSubdir(subdir, superdir string) (bool, error) {
+    up := ".." + string(os.PathSeparator)
+
+    // path-comparisons using filepath.Abs don't work reliably according to docs (no unique representation).
+    rel, err := filepath.Rel(superdir, subdir)
+    if err != nil {
+        return false, err
+    }
+    if !strings.HasPrefix(rel, up) && rel != ".." {
+        return true, nil
+    }
+    return false, nil
+}
+
 func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan LogEntry, errorLog *log.Logger, wg *sync.WaitGroup) {
 	defer conn.Close()
 	defer wg.Done()
@@ -69,8 +85,29 @@ func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan Log
 		return
 	}
 
-	// Resolve URI path to actual filesystem path
-	path := resolvePath(URL.Path, config)
+	// Resolve URI path to actual filesystem path, including following symlinks
+	raw_path := resolvePath(URL.Path, config)
+	path, err := filepath.EvalSymlinks(raw_path)
+	if err!= nil {
+		errorLog.Println("Error evaluating path " + raw_path + " for symlinks: " + err.Error())
+		conn.Write([]byte("51 Not found!\r\n"))
+		log.Status = 51
+	}
+
+	// If symbolic links have been used to escape the intended document directory,
+	// deny all knowledge
+	isSub, err := isSubdir(path, config.DocBase)
+	if err != nil {
+		errorLog.Println("Error testing whether path " + path + " is below DocBase: " + err.Error())
+	}
+	if !isSub {
+		errorLog.Println("Refusing to follow simlink from " + raw_path + " outside of DocBase!")
+	}
+	if err != nil || !isSub {
+		conn.Write([]byte("51 Not found!\r\n"))
+		log.Status = 51
+		return
+	}
 
 	// Paranoid security measures:
 	// Fail ASAP if the URL has mapped to a sensitive file
