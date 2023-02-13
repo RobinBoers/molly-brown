@@ -299,17 +299,42 @@ a request URL includes components after the path to an executable
 executable (e.g. `/var/gemini/cgi-bin/scripty.py`) while the variable
 `PATH_INFO` will contain the remainder (e.g. `foo/bar/baz`).
 
-It is very important to be aware that programs written in Go are
-*unable* to reliably change their UID once started, due to how
-goroutines are implemented on unix systems.  As an unavoidable
-consequence of this, CGI processes started by Molly Brown are run as
-the same user as the server process.  This means CGI processes
-necessarily have read and write access to the server logs and to the
-TLS private key.  There is no way to work around this.  As such you
-must be extremely careful about only running trustworthy CGI
-applications, ideally only applications you have carefully written
-yourself.  Allowing untrusted users to upload arbitrary executable
-files into a CGI path is a serious security vulnerability.
+Molly Brown itself tries very hard to avoid being tricked into serving
+content that isn't supposed to be served, but it is completely unable
+to impose any control over what CGI processes can or can't go after
+they are started!  Where possible, Molly Brown will use the operating
+system's security features to reduce risk, but it is your
+responsibility to understand what it can and cannot do and weigh the
+risks accordingly:
+
+When compiled on GNU/Linux with Go version 1.16 or later, or on any
+other unix operating system with any version of Go, Molly Brown will
+use the setuid() system call as follows.  When the compiled
+`molly-brown` executable has its SETUID bit set, so that it starts
+with the privileges of the user who owns the binary, it will change
+the effective UID back to the real UID before it begins accepting
+network connections.  This way, config files, log files and TLS keys
+can be set readable by the user who owns the binary, but not readable
+by the user who runs the binary.  CGI processes will then be unable to
+read any of those sensitive files.  If the binary is not SETUID but is
+run by the superuser/root, then Molly will change its UID to that of
+the `nobody` user before accepting network connections, so CGI
+processes will again not be able to read sensitive files.
+
+When compiled on GNU/Linux with Go versions 1.15 or earlier, Molly
+Brown is completley unable to reliably change its UID due to the way
+early implementations of goroutines interacted with the setuid()
+system call.  In this situation, Molly Brown will refuse to run as
+superuser/root.  It will run as any other user, but CGI processes will
+necessary run as the same user as the server and so unavoidably will
+have access to sensitive files.  You should proceed with extreme
+caution and only use carefully vetted CGI programs (or upgrade Go).
+
+Molly Brown will compile on non-unix operating systems and is known to
+run on Plan9, for example, but no special security measures are taken
+on these non-unix platforms.  It is your responsibility to understand
+the risks.  If you are aware of security measures for these systems
+which can be implemented in Go, patches are extremely welcome.
 
 SCGI applications must be started separately (i.e. Molly Brown expects
 them to already be running and will not attempt to start them itself),

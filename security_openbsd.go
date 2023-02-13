@@ -13,6 +13,9 @@ import (
 // and should pledge their own restrictions and unveil their own files.
 func enableSecurityRestrictions(config Config, errorLog *log.Logger) {
 
+	// Setuid to an unprivileged user
+	DropPrivs(config, errorLog)
+
 	// Unveil the configured document base as readable.
 	log.Println("Unveiling \"" + config.DocBase + "\" as readable.")
 	err := unix.Unveil(config.DocBase, "r")

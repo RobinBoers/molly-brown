@@ -1,4 +1,4 @@
-// +build !openbsd
+// +build js nacl plan9 windows
 
 package main
 
