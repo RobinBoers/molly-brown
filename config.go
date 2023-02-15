@@ -17,6 +17,7 @@ type Config struct {
 	DocBase               string
 	HomeDocBase           string
 	ChrootDir             string
+	UnprivUsername        string
 	GeminiExt             string
 	DefaultLang           string
 	DefaultEncoding       string
@@ -61,6 +62,7 @@ func getConfig(filename string) (Config, error) {
 	config.DocBase = "/var/gemini/"
 	config.HomeDocBase = "users"
 	config.ChrootDir = ""
+	config.UnprivUsername = "nobody"
 	config.GeminiExt = "gmi"
 	config.DefaultLang = ""
 	config.DefaultEncoding = ""

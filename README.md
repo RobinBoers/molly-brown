@@ -395,6 +395,9 @@ facility.
   chroot happens immediately after reading the config file.  All other
   paths specified in the config file (e.g. `DocBase`, `KeyPath`,
   `AccessLog`) must be specified relative to `ChrootDir`.
+* `UnprivUsername`: The username of an unprivileged user on the system
+  which MollyBrown will change setuid() to if started by the superuser
+  or when run as a setuid binary (default value "nobody").
 
 ## .molly files
 

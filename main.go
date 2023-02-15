@@ -47,13 +47,13 @@ func main() {
 	uid := os.Getuid()
 	nobody_uid := -1
 	if uid == 0 {
-		nobody_user, err := user.Lookup("nobody")
+		nobody_user, err := user.Lookup(config.UnprivUsername)
 		if err != nil {
-			log.Fatal("Running as root but could not lookup UID for user " + "nobody" + ": " + err.Error())
+			log.Fatal("Running as root but could not lookup UID for user " + config.UnprivUsername + ": " + err.Error())
 		}
 		nobody_uid, err = strconv.Atoi(nobody_user.Uid)
 		if err != nil {
-			log.Fatal("Running as root but could not lookup UID fr user " + "nobody" + ": " + err.Error())
+			log.Fatal("Running as root but could not lookup UID for user " + config.UnprivUsername + ": " + err.Error())
 		}
 	}
 
