@@ -44,7 +44,9 @@ func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan Log
 	log.RemoteAddr = conn.RemoteAddr()
 	log.RequestURL = "-"
 	log.Status = 0
-	defer func() { accessLogEntries <- log }()
+	if accessLogEntries != nil {
+		defer func() { accessLogEntries <- log }()
+	}
 
 	// Read request
 	URL, err := readRequest(conn, &log, errorLog)

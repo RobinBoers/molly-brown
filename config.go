@@ -16,6 +16,7 @@ type Config struct {
 	KeyPath               string
 	DocBase               string
 	HomeDocBase           string
+	ChrootDir             string
 	GeminiExt             string
 	DefaultLang           string
 	DefaultEncoding       string
@@ -59,6 +60,7 @@ func getConfig(filename string) (Config, error) {
 	config.KeyPath = "key.pem"
 	config.DocBase = "/var/gemini/"
 	config.HomeDocBase = "users"
+	config.ChrootDir = ""
 	config.GeminiExt = "gmi"
 	config.DefaultLang = ""
 	config.DefaultEncoding = ""
@@ -92,13 +94,29 @@ func getConfig(filename string) (Config, error) {
 		return config, errors.New("Invalid DirectorySort value.")
 	}
 
-	// Absolutise DocBase
+	// Validate chroot() dir
+	if config.ChrootDir != "" {
+		config.ChrootDir = filepath.Abs(config.ChrootDir)
+		_, err := os.Stat(config.ChrootDir)
+		if os.IsNotExist(err) {
+			return config, err
+		}
+	}
+
+	// Absolutise DocBase, relative to the chroot dir
 	if !filepath.IsAbs(config.DocBase) {
 		abs, err := filepath.Abs(config.DocBase)
 		if err != nil {
 			return config, err
 		}
-		config.DocBase = abs
+		if config.ChrootDir != "" {
+			config.DocBase, err = filepath.Rel(config.ChrootDir, abs)
+			if err != nil {
+				return config, err
+			}
+		} else {
+			config.DocBase = abs
+		}
 	}
 
 	// Absolutise CGI paths

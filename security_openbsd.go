@@ -11,10 +11,10 @@ import (
 // operations available to the molly brown executable. Please note that (S)CGI
 // processes that molly brown spawns or communicates with are unrestricted
 // and should pledge their own restrictions and unveil their own files.
-func enableSecurityRestrictions(config Config, errorLog *log.Logger) {
+func enableSecurityRestrictions(config Config, nobody_uid int, errorLog *log.Logger) {
 
 	// Setuid to an unprivileged user
-	DropPrivs(config, errorLog)
+	DropPrivs(config, nobody_uid, errorLog)
 
 	// Unveil the configured document base as readable.
 	log.Println("Unveiling \"" + config.DocBase + "\" as readable.")

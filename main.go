@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"os/user"
 	"strconv"
 	"sync"
 	"syscall"
@@ -41,6 +42,29 @@ func main() {
 		log.Fatal(err)
 	}
 
+	// If we are running as root, find the UID of the "nobody" user, before a
+	// chroot() possibly stops seeing /etc/passwd
+	uid := os.Getuid()
+	nobody_uid := -1
+	if uid == 0 {
+		nobody_user, err := user.Lookup("nobody")
+		if err != nil {
+			log.Fatal("Running as root but could not lookup UID for user " + "nobody" + ": " + err.Error())
+		}
+		nobody_uid, err = strconv.Atoi(nobody_user.Uid)
+		if err != nil {
+			log.Fatal("Running as root but could not lookup UID fr user " + "nobody" + ": " + err.Error())
+		}
+	}
+
+	// Chroot, if asked
+	if config.ChrootDir != "" {
+		err := syscall.Chroot(config.ChrootDir)
+		if err != nil {
+			log.Fatal("Could not chroot to " + config.ChrootDir + ": " + err.Error())
+		}
+	}
+
 	// Open log files
 	var errorLogFile *os.File
 	if config.ErrorLog == "" {
@@ -55,13 +79,9 @@ func main() {
 	errorLog := log.New(errorLogFile, "", log.Ldate|log.Ltime)
 
 	var accessLogFile *os.File
-	// TODO: Find a more elegant/portable way to disable logging
-	if config.AccessLog == "" {
-		config.AccessLog = "/dev/null"
-	}
 	if config.AccessLog == "-" {
 		accessLogFile = os.Stdout
-	} else {
+	} else if config.AccessLog != "" {
 		accessLogFile, err = os.OpenFile(config.AccessLog, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
 			errorLog.Println("Error opening access log file: " + err.Error())
@@ -92,11 +112,15 @@ func main() {
 		ClientAuth:   tls.RequestClientCert,
 	}
 
-	// Chdir to / so we don't block any mountpoints
-	err = os.Chdir("/")
-	if err != nil {
-		errorLog.Println("Could not change working directory to /: " + err.Error())
-	}
+	// Try to chdir to /, so we don't block any mountpoints
+	// But if we can't for some reason it's no big deal
+        err = os.Chdir("/")
+        if err != nil {
+                errorLog.Println("Could not change working directory to /: " + err.Error())
+        }
+
+	// Apply security restrictions
+	enableSecurityRestrictions(config, nobody_uid, errorLog)
 
 	// Create TLS listener
 	listener, err := tls.Listen("tcp", ":"+strconv.Itoa(config.Port), tlscfg)
@@ -107,16 +131,18 @@ func main() {
 	defer listener.Close()
 
 	// Start log handling routines
-	accessLogEntries := make(chan LogEntry, 10)
-	go func() {
-		for {
-			entry := <-accessLogEntries
-			writeLogEntry(accessLogFile, entry)
-		}
-	}()
-
-	// Restrict access to the files specified in config
-	enableSecurityRestrictions(config, errorLog)
+	var accessLogEntries chan LogEntry
+	if config.AccessLog == "" {
+		accessLogEntries = nil
+	} else {
+		accessLogEntries := make(chan LogEntry, 10)
+		go func() {
+			for {
+				entry := <-accessLogEntries
+				writeLogEntry(accessLogFile, entry)
+			}
+		}()
+	}
 
 	// Start listening for signals
 	shutdown := make(chan struct{})

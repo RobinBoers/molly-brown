@@ -319,7 +319,12 @@ by the user who runs the binary.  CGI processes will then be unable to
 read any of those sensitive files.  If the binary is not SETUID but is
 run by the superuser/root, then Molly will change its UID to that of
 the `nobody` user before accepting network connections, so CGI
-processes will again not be able to read sensitive files.
+processes will again not be able to read sensitive files.  Note that
+while these measures can protect Molly's own sensitive files from
+CGI processes, CGI processes may still be able to read other sensitive
+files anywhere else on the system.  Consider chroot()-ing Molly Brown
+into a small corner of the filesystem (see `ChrootDir` below) to
+reduce this risk.
 
 When compiled on GNU/Linux with Go versions 1.15 or earlier, Molly
 Brown is completley unable to reliably change its UID due to the way
@@ -381,6 +386,15 @@ facility.
   Requests made without a certificate will cause a response with a
   status code of 60.  Requests made with a certificate not in the list
   will cause a response with a status code of 60.
+
+### Security settings
+
+* `ChrootDir`: A directory to which Molly Brown should chroot(),
+  making it more difficult for the server itself or spawned CGI
+  processes to read or write any files higher in the hiearch.  The
+  chroot happens immediately after reading the config file.  All other
+  paths specified in the config file (e.g. `DocBase`, `KeyPath`,
+  `AccessLog`) must be specified relative to `ChrootDir`.
 
 ## .molly files
 
