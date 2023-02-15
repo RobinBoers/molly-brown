@@ -96,7 +96,10 @@ func getConfig(filename string) (Config, error) {
 
 	// Validate chroot() dir
 	if config.ChrootDir != "" {
-		config.ChrootDir = filepath.Abs(config.ChrootDir)
+		config.ChrootDir, err = filepath.Abs(config.ChrootDir)
+		if err != nil {
+			return config, err
+		}
 		_, err := os.Stat(config.ChrootDir)
 		if os.IsNotExist(err) {
 			return config, err
