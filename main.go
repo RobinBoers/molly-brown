@@ -41,15 +41,26 @@ func main() {
 		log.Fatal(err)
 	}
 
+	// Run server and exit
+	os.Exit(do_main(config))
+}
+
+func do_main(config Config) int {
+
 	// If we are running as root, find the UID of the "nobody" user, before a
 	// chroot() possibly stops seeing /etc/passwd
-	privInfo := getUserInfo(config)
+	privInfo, err := getUserInfo(config)
+	if err != nil {
+		errorLog.Println("Exiting due to failure to apply security restrictions.")
+		return 1
+	}
 
 	// Chroot, if asked
 	if config.ChrootDir != "" {
 		err := syscall.Chroot(config.ChrootDir)
 		if err != nil {
-			log.Fatal("Could not chroot to " + config.ChrootDir + ": " + err.Error())
+			log.Println("Could not chroot to " + config.ChrootDir + ": " + err.Error())
+			return 1
 		}
 	}
 
@@ -60,7 +71,8 @@ func main() {
 	} else {
 		errorLogFile, err = os.OpenFile(config.ErrorLog, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
+			return 1
 		}
 		defer errorLogFile.Close()
 	}
@@ -73,7 +85,8 @@ func main() {
 		accessLogFile, err = os.OpenFile(config.AccessLog, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
 			errorLog.Println("Error opening access log file: " + err.Error())
-			log.Fatal(err)
+			log.Println(err)
+			return 1
 		}
 		defer accessLogFile.Close()
 	}
@@ -83,16 +96,16 @@ func main() {
 	info, err := os.Stat(config.KeyPath)
 	if err != nil {
 		errorLog.Println("Error opening TLS key file: " + err.Error())
-		log.Fatal(err)
+		return 1
 	}
 	if uint64(info.Mode().Perm())&0444 == 0444 {
 		errorLog.Println("Refusing to use world-readable TLS key file " + config.KeyPath)
-		os.Exit(0)
+		return 1
 	}
 	cert, err := tls.LoadX509KeyPair(config.CertPath, config.KeyPath)
 	if err != nil {
 		errorLog.Println("Error loading TLS keypair: " + err.Error())
-		log.Fatal(err)
+		return 1
 	}
 	tlscfg := &tls.Config{
 		Certificates: []tls.Certificate{cert},
@@ -108,13 +121,17 @@ func main() {
         }
 
 	// Apply security restrictions
-	enableSecurityRestrictions(config, privInfo, errorLog)
+	err = enableSecurityRestrictions(config, privInfo, errorLog)
+	if err != nil {
+		errorLog.Println("Exiting due to failure to apply security restrictions.")
+		return 1
+	}
 
 	// Create TLS listener
 	listener, err := tls.Listen("tcp", ":"+strconv.Itoa(config.Port), tlscfg)
 	if err != nil {
 		errorLog.Println("Error creating TLS listener: " + err.Error())
-		log.Fatal(err)
+		return 1
 	}
 	defer listener.Close()
 
@@ -164,4 +181,6 @@ func main() {
 	wg.Wait()
 	errorLog.Println("Exiting.")
 
+	// Exit successfully
+	return 0
 }

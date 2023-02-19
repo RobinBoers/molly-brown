@@ -6,8 +6,9 @@ import (
 	"log"
 )
 
-func enableSecurityRestrictions(config Config, ui userInfo, errorLog *log.Logger) {
+func enableSecurityRestrictions(config Config, ui userInfo, errorLog *log.Logger) error {
 
 	// Setuid to an unprivileged user
-	DropPrivs(ui, errorLog)
+	return DropPrivs(ui, errorLog)
+
 }

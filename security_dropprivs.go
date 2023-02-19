@@ -26,7 +26,7 @@ type userInfo struct {
 	unpriv_gid int
 }
 
-func getUserInfo(config Config) userInfo {
+func getUserInfo(config Config) (userInfo, error) {
 	var ui userInfo
 	ui.uid = os.Getuid()
 	ui.euid = os.Geteuid()
@@ -34,7 +34,8 @@ func getUserInfo(config Config) userInfo {
 	ui.egid = os.Getegid()
 	supp_groups, err := os.Getgroups()
 	if err != nil {
-		log.Fatal("Could not get supplementary groups: ", err.Error())
+		log.Println("Could not get supplementary groups: ", err.Error())
+		return ui, err
 	}
 	ui.supp_groups = supp_groups
 	ui.unpriv_uid = -1
@@ -55,22 +56,24 @@ func getUserInfo(config Config) userInfo {
 	if ui.need_drop {
 		nobody_user, err := user.Lookup(config.UnprivUsername)
 		if err != nil {
-			log.Fatal("Running as root but could not lookup UID for user " + config.UnprivUsername + ": " + err.Error())
+			log.Println("Running as root but could not lookup UID for user " + config.UnprivUsername + ": " + err.Error())
+			return ui, err
 		}
 		ui.unpriv_uid, err = strconv.Atoi(nobody_user.Uid)
 		ui.unpriv_gid, err = strconv.Atoi(nobody_user.Gid)
 		if err != nil {
-			log.Fatal("Running as root but could not lookup UID for user " + config.UnprivUsername + ": " + err.Error())
+			log.Println("Running as root but could not lookup UID for user " + config.UnprivUsername + ": " + err.Error())
+			return ui, err
 		}
 	}
 
-	return ui
+	return ui, nil
 }
-func DropPrivs(ui userInfo, errorLog *log.Logger) {
+func DropPrivs(ui userInfo, errorLog *log.Logger) error {
 
 	// If we're already unprivileged, all good
 	if !ui.need_drop {
-		return
+		return nil
 	}
 
 	// Drop supplementary groups
@@ -78,7 +81,7 @@ func DropPrivs(ui userInfo, errorLog *log.Logger) {
 		err := syscall.Setgroups([]int{})
 		if err != nil {
 			errorLog.Println("Could not unset supplementary groups: " + err.Error())
-			log.Fatal(err)
+			return err
 		}
 	}
 
@@ -87,7 +90,7 @@ func DropPrivs(ui userInfo, errorLog *log.Logger) {
 		err := syscall.Setgid(ui.unpriv_gid)
 		if err != nil {
 			errorLog.Println("Could not setgid to " + strconv.Itoa(ui.unpriv_gid) + ": " + err.Error())
-			log.Fatal(err)
+			return err
 		}
 	}
 
@@ -96,8 +99,9 @@ func DropPrivs(ui userInfo, errorLog *log.Logger) {
 		err := syscall.Setuid(ui.unpriv_uid)
 		if err != nil {
 			errorLog.Println("Could not setuid to " + strconv.Itoa(ui.unpriv_uid) + ": " + err.Error())
-			log.Fatal(err)
+			return err
 		}
 	}
 
+	return nil
 }

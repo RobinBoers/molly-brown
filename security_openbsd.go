@@ -11,17 +11,20 @@ import (
 // operations available to the molly brown executable. Please note that (S)CGI
 // processes that molly brown spawns or communicates with are unrestricted
 // and should pledge their own restrictions and unveil their own files.
-func enableSecurityRestrictions(config Config, ui userInfo, errorLog *log.Logger) {
+func enableSecurityRestrictions(config Config, ui userInfo, errorLog *log.Logger) error {
 
 	// Setuid to an unprivileged user
-	DropPrivs(ui, errorLog)
+	err := DropPrivs(ui, errorLog)
+	if err != nil {
+		return err
+	}
 
 	// Unveil the configured document base as readable.
 	log.Println("Unveiling \"" + config.DocBase + "\" as readable.")
 	err := unix.Unveil(config.DocBase, "r")
 	if err != nil {
 		errorLog.Println("Could not unveil DocBase: " + err.Error())
-		log.Fatal(err)
+		return err
 	}
 
 	// Unveil cgi path globs as executable.
@@ -32,7 +35,7 @@ func enableSecurityRestrictions(config Config, ui userInfo, errorLog *log.Logger
 			err = unix.Unveil(cgiGlobbedPath, "rx")
 			if err != nil {
 				errorLog.Println("Could not unveil CGIPaths: " + err.Error())
-				log.Fatal(err)
+				return err
 			}
 		}
 	}
@@ -41,6 +44,9 @@ func enableSecurityRestrictions(config Config, ui userInfo, errorLog *log.Logger
 	for _, scgiSocket := range config.SCGIPaths {
 		log.Println("Unveiling \"" + scgiSocket + "\" as read/write.")
 		err = unix.Unveil(scgiSocket, "rw")
+		if err != nil {
+			return err
+		}
 	}
 
 	// Finalize the unveil list.
@@ -48,7 +54,7 @@ func enableSecurityRestrictions(config Config, ui userInfo, errorLog *log.Logger
 	err = unix.UnveilBlock()
 	if err != nil {
 		errorLog.Println("Could not block unveil: " + err.Error())
-		log.Fatal(err)
+		return err
 	}
 
 	// Pledge to only use stdio, inet, and rpath syscalls.
@@ -64,6 +70,6 @@ func enableSecurityRestrictions(config Config, ui userInfo, errorLog *log.Logger
 	err = unix.PledgePromises(promises)
 	if err != nil {
 		errorLog.Println("Could not pledge: " + err.Error())
-		log.Fatal(err)
+		return err
 	}
 }
