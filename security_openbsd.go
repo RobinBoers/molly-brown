@@ -11,10 +11,10 @@ import (
 // operations available to the molly brown executable. Please note that (S)CGI
 // processes that molly brown spawns or communicates with are unrestricted
 // and should pledge their own restrictions and unveil their own files.
-func enableSecurityRestrictions(config Config, ui userInfo, errorLog *log.Logger) error {
+func enableSecurityRestrictions(config Config, ui userInfo) error {
 
 	// Setuid to an unprivileged user
-	err := DropPrivs(ui, errorLog)
+	err := DropPrivs(ui)
 	if err != nil {
 		return err
 	}
@@ -23,7 +23,7 @@ func enableSecurityRestrictions(config Config, ui userInfo, errorLog *log.Logger
 	log.Println("Unveiling \"" + config.DocBase + "\" as readable.")
 	err := unix.Unveil(config.DocBase, "r")
 	if err != nil {
-		errorLog.Println("Could not unveil DocBase: " + err.Error())
+		log.Println("Could not unveil DocBase: " + err.Error())
 		return err
 	}
 
@@ -34,7 +34,7 @@ func enableSecurityRestrictions(config Config, ui userInfo, errorLog *log.Logger
 			log.Println("Unveiling \"" + cgiGlobbedPath + "\" as executable.")
 			err = unix.Unveil(cgiGlobbedPath, "rx")
 			if err != nil {
-				errorLog.Println("Could not unveil CGIPaths: " + err.Error())
+				log.Println("Could not unveil CGIPaths: " + err.Error())
 				return err
 			}
 		}
@@ -53,7 +53,7 @@ func enableSecurityRestrictions(config Config, ui userInfo, errorLog *log.Logger
 	// Any files not whitelisted above won't be accessible to molly brown.
 	err = unix.UnveilBlock()
 	if err != nil {
-		errorLog.Println("Could not block unveil: " + err.Error())
+		log.Println("Could not block unveil: " + err.Error())
 		return err
 	}
 
@@ -69,7 +69,7 @@ func enableSecurityRestrictions(config Config, ui userInfo, errorLog *log.Logger
 	}
 	err = unix.PledgePromises(promises)
 	if err != nil {
-		errorLog.Println("Could not pledge: " + err.Error())
+		log.Println("Could not pledge: " + err.Error())
 		return err
 	}
 }

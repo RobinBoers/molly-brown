@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-func handleCGI(config Config, path string, cgiPath string, URL *url.URL, log *LogEntry, errorLog *log.Logger, conn net.Conn) {
+func handleCGI(config Config, path string, cgiPath string, URL *url.URL, logEntry *LogEntry, conn net.Conn) {
 	// Find the shortest leading part of path which maps to an executable file.
 	// Call this part scriptPath, and everything after it pathInfo.
 	components := strings.Split(path, "/")
@@ -58,42 +58,42 @@ func handleCGI(config Config, path string, cgiPath string, URL *url.URL, log *Lo
 	response, err := cmd.Output()
 
 	if ctx.Err() == context.DeadlineExceeded {
-		errorLog.Println("Terminating CGI process " + path + " due to exceeding 10 second runtime limit.")
+		log.Println("Terminating CGI process " + path + " due to exceeding 10 second runtime limit.")
 		conn.Write([]byte("42 CGI process timed out!\r\n"))
-		log.Status = 42
+		logEntry.Status = 42
 		return
 	}
 	if err != nil {
-		errorLog.Println("Error running CGI program " + path + ": " + err.Error())
+		log.Println("Error running CGI program " + path + ": " + err.Error())
 		if err, ok := err.(*exec.ExitError); ok {
-			errorLog.Println("↳ stderr output: " + string(err.Stderr))
+			log.Println("↳ stderr output: " + string(err.Stderr))
 		}
 		conn.Write([]byte("42 CGI error!\r\n"))
-		log.Status = 42
+		logEntry.Status = 42
 		return
 	}
 	// Extract response header
 	header, _, err := bufio.NewReader(strings.NewReader(string(response))).ReadLine()
 	status, err2 := strconv.Atoi(strings.Fields(string(header))[0])
 	if err != nil || err2 != nil {
-		errorLog.Println("Unable to parse first line of output from CGI process " + path + " as valid Gemini response header.  Line was: " + string(header))
+		log.Println("Unable to parse first line of output from CGI process " + path + " as valid Gemini response header.  Line was: " + string(header))
 		conn.Write([]byte("42 CGI error!\r\n"))
-		log.Status = 42
+		logEntry.Status = 42
 		return
 	}
-	log.Status = status
+	logEntry.Status = status
 	// Write response
 	conn.Write(response)
 }
 
-func handleSCGI(URL *url.URL, scgiPath string, scgiSocket string, config Config, log *LogEntry, errorLog *log.Logger, conn net.Conn) {
+func handleSCGI(URL *url.URL, scgiPath string, scgiSocket string, config Config, logEntry *LogEntry, conn net.Conn) {
 
 	// Connect to socket
 	socket, err := net.Dial("unix", scgiSocket)
 	if err != nil {
-		errorLog.Println("Error connecting to SCGI socket " + scgiSocket + ": " + err.Error())
+		log.Println("Error connecting to SCGI socket " + scgiSocket + ": " + err.Error())
 		conn.Write([]byte("42 Error connecting to SCGI service!\r\n"))
-		log.Status = 42
+		logEntry.Status = 42
 		return
 	}
 	defer socket.Close()
@@ -123,9 +123,9 @@ func handleSCGI(URL *url.URL, scgiPath string, scgiSocket string, config Config,
 				break
 			} else if !first {
 				// Err
-				errorLog.Println("Error reading from SCGI socket " + scgiSocket + ": " + err.Error())
+				log.Println("Error reading from SCGI socket " + scgiSocket + ": " + err.Error())
 				conn.Write([]byte("42 Error reading from SCGI service!\r\n"))
-				log.Status = 42
+				logEntry.Status = 42
 				return
 			} else {
 				break
@@ -138,10 +138,10 @@ func handleSCGI(URL *url.URL, scgiPath string, scgiSocket string, config Config,
 			status, err := strconv.Atoi(strings.Fields(lines[0])[0])
 			if err != nil {
 				conn.Write([]byte("42 CGI error!\r\n"))
-				log.Status = 42
+				logEntry.Status = 42
 				return
 			}
-			log.Status = status
+			logEntry.Status = status
 		}
 		// Send to client
 		conn.Write(buffer[:n])

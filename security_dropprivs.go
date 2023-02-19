@@ -69,7 +69,7 @@ func getUserInfo(config Config) (userInfo, error) {
 
 	return ui, nil
 }
-func DropPrivs(ui userInfo, errorLog *log.Logger) error {
+func DropPrivs(ui userInfo) error {
 
 	// If we're already unprivileged, all good
 	if !ui.need_drop {
@@ -80,7 +80,7 @@ func DropPrivs(ui userInfo, errorLog *log.Logger) error {
 	if ui.root_supp_group {
 		err := syscall.Setgroups([]int{})
 		if err != nil {
-			errorLog.Println("Could not unset supplementary groups: " + err.Error())
+			log.Println("Could not unset supplementary groups: " + err.Error())
 			return err
 		}
 	}
@@ -89,7 +89,7 @@ func DropPrivs(ui userInfo, errorLog *log.Logger) error {
 	if ui.root_prim_group {
 		err := syscall.Setgid(ui.unpriv_gid)
 		if err != nil {
-			errorLog.Println("Could not setgid to " + strconv.Itoa(ui.unpriv_gid) + ": " + err.Error())
+			log.Println("Could not setgid to " + strconv.Itoa(ui.unpriv_gid) + ": " + err.Error())
 			return err
 		}
 	}
@@ -98,7 +98,7 @@ func DropPrivs(ui userInfo, errorLog *log.Logger) error {
 	if ui.root_user {
 		err := syscall.Setuid(ui.unpriv_uid)
 		if err != nil {
-			errorLog.Println("Could not setuid to " + strconv.Itoa(ui.unpriv_uid) + ": " + err.Error())
+			log.Println("Could not setuid to " + strconv.Itoa(ui.unpriv_uid) + ": " + err.Error())
 			return err
 		}
 	}

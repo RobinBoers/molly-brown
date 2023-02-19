@@ -10,24 +10,24 @@ import (
 	"time"
 )
 
-func enforceCertificateValidity(clientCerts []*x509.Certificate, conn net.Conn, log *LogEntry) {
+func enforceCertificateValidity(clientCerts []*x509.Certificate, conn net.Conn, logEntry *LogEntry) {
 	// This will fail if any of multiple certs are invalid
 	// Maybe we should just require one valid?
 	now := time.Now()
 	for _, cert := range clientCerts {
 		if now.Before(cert.NotBefore) {
 			conn.Write([]byte("64 Client certificate not yet valid!\r\n"))
-			log.Status = 64
+			logEntry.Status = 64
 			return
 		} else if now.After(cert.NotAfter) {
 			conn.Write([]byte("65 Client certificate has expired!\r\n"))
-			log.Status = 65
+			logEntry.Status = 65
 			return
 		}
 	}
 }
 
-func handleCertificateZones(URL *url.URL, clientCerts []*x509.Certificate, config Config, conn net.Conn, log *LogEntry) {
+func handleCertificateZones(URL *url.URL, clientCerts []*x509.Certificate, config Config, conn net.Conn, logEntry *LogEntry) {
 	authorised := true
 	for zone, allowedFingerprints := range config.CertificateZones {
 		matched, err := regexp.Match(zone, []byte(URL.Path))
@@ -47,10 +47,10 @@ func handleCertificateZones(URL *url.URL, clientCerts []*x509.Certificate, confi
 	if !authorised {
 		if len(clientCerts) > 0 {
 			conn.Write([]byte("61 Provided certificate not authorised for this resource\r\n"))
-			log.Status = 61
+			logEntry.Status = 61
 		} else {
 			conn.Write([]byte("60 A pre-authorised certificate is required to access this resource\r\n"))
-			log.Status = 60
+			logEntry.Status = 60
 		}
 		return
 	}

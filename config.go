@@ -164,7 +164,7 @@ func getConfig(filename string) (Config, error) {
 	return config, nil
 }
 
-func parseMollyFiles(path string, config *Config, errorLog *log.Logger) {
+func parseMollyFiles(path string, config *Config) {
 	// Replace config variables which use pointers with new ones,
 	// so that changes made here aren't reflected everywhere.
 	newTempRedirects := make(map[string]string)
@@ -224,7 +224,7 @@ func parseMollyFiles(path string, config *Config, errorLog *log.Logger) {
 		// If the file exists and we can read it, try to parse it
 		_, err = toml.DecodeFile(mollyPath, &mollyFile)
 		if err != nil {
-			errorLog.Println("Error parsing .molly file " + mollyPath + ": " + err.Error())
+			log.Println("Error parsing .molly file " + mollyPath + ": " + err.Error())
 			continue
 		}
 		// Overwrite main Config using MollyFile
@@ -237,14 +237,14 @@ func parseMollyFiles(path string, config *Config, errorLog *log.Logger) {
 		config.DirectoryTitles = mollyFile.DirectoryTitles
 		for key, value := range mollyFile.TempRedirects {
 			if strings.Contains(value, "://") && !strings.HasPrefix(value, "gemini://") {
-				errorLog.Println("Ignoring cross-protocol redirect to " + value + " in .molly file " + mollyPath)
+				log.Println("Ignoring cross-protocol redirect to " + value + " in .molly file " + mollyPath)
 				continue
 			}
 			config.TempRedirects[key] = value
 		}
 		for key, value := range mollyFile.PermRedirects {
 			if strings.Contains(value, "://") && !strings.HasPrefix(value, "gemini://") {
-				errorLog.Println("Ignoring cross-protocol redirect to " + value + " in .molly file " + mollyPath)
+				log.Println("Ignoring cross-protocol redirect to " + value + " in .molly file " + mollyPath)
 				continue
 			}
 			config.PermRedirects[key] = value

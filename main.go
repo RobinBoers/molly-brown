@@ -51,7 +51,7 @@ func do_main(config Config) int {
 	// chroot() possibly stops seeing /etc/passwd
 	privInfo, err := getUserInfo(config)
 	if err != nil {
-		errorLog.Println("Exiting due to failure to apply security restrictions.")
+		log.Println("Exiting due to failure to apply security restrictions.")
 		return 1
 	}
 
@@ -65,18 +65,16 @@ func do_main(config Config) int {
 	}
 
 	// Open log files
-	var errorLogFile *os.File
-	if config.ErrorLog == "" {
-		errorLogFile = os.Stderr
-	} else {
-		errorLogFile, err = os.OpenFile(config.ErrorLog, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if config.ErrorLog != "" {
+		errorLogFile, err := os.OpenFile(config.ErrorLog, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
-			log.Println(err)
+			log.Println("Error opening error log file: " + err.Error())
 			return 1
 		}
 		defer errorLogFile.Close()
+		log.SetOutput(errorLogFile)
 	}
-	errorLog := log.New(errorLogFile, "", log.Ldate|log.Ltime)
+	log.SetFlags(log.Ldate|log.Ltime)
 
 	var accessLogFile *os.File
 	if config.AccessLog == "-" {
@@ -84,8 +82,7 @@ func do_main(config Config) int {
 	} else if config.AccessLog != "" {
 		accessLogFile, err = os.OpenFile(config.AccessLog, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
-			errorLog.Println("Error opening access log file: " + err.Error())
-			log.Println(err)
+			log.Println("Error opening access log file: " + err.Error())
 			return 1
 		}
 		defer accessLogFile.Close()
@@ -95,16 +92,16 @@ func do_main(config Config) int {
 	// Check key file permissions first
 	info, err := os.Stat(config.KeyPath)
 	if err != nil {
-		errorLog.Println("Error opening TLS key file: " + err.Error())
+		log.Println("Error opening TLS key file: " + err.Error())
 		return 1
 	}
 	if uint64(info.Mode().Perm())&0444 == 0444 {
-		errorLog.Println("Refusing to use world-readable TLS key file " + config.KeyPath)
+		log.Println("Refusing to use world-readable TLS key file " + config.KeyPath)
 		return 1
 	}
 	cert, err := tls.LoadX509KeyPair(config.CertPath, config.KeyPath)
 	if err != nil {
-		errorLog.Println("Error loading TLS keypair: " + err.Error())
+		log.Println("Error loading TLS keypair: " + err.Error())
 		return 1
 	}
 	tlscfg := &tls.Config{
@@ -117,20 +114,20 @@ func do_main(config Config) int {
 	// But if we can't for some reason it's no big deal
         err = os.Chdir("/")
         if err != nil {
-                errorLog.Println("Could not change working directory to /: " + err.Error())
+                log.Println("Could not change working directory to /: " + err.Error())
         }
 
 	// Apply security restrictions
-	err = enableSecurityRestrictions(config, privInfo, errorLog)
+	err = enableSecurityRestrictions(config, privInfo)
 	if err != nil {
-		errorLog.Println("Exiting due to failure to apply security restrictions.")
+		log.Println("Exiting due to failure to apply security restrictions.")
 		return 1
 	}
 
 	// Create TLS listener
 	listener, err := tls.Listen("tcp", ":"+strconv.Itoa(config.Port), tlscfg)
 	if err != nil {
-		errorLog.Println("Error creating TLS listener: " + err.Error())
+		log.Println("Error creating TLS listener: " + err.Error())
 		return 1
 	}
 	defer listener.Close()
@@ -155,7 +152,7 @@ func do_main(config Config) int {
 	signal.Notify(sigterm, syscall.SIGTERM)
 	go func() {
 		<-sigterm
-		errorLog.Println("Caught SIGTERM.  Waiting for handlers to finish...")
+		log.Println("Caught SIGTERM.  Waiting for handlers to finish...")
 		close(shutdown)
 		listener.Close()
 	}()
@@ -167,19 +164,19 @@ func do_main(config Config) int {
 		conn, err := listener.Accept()
 		if err == nil {
 			wg.Add(1)
-			go handleGeminiRequest(conn, config, accessLogEntries, errorLog, &wg)
+			go handleGeminiRequest(conn, config, accessLogEntries, &wg)
 		} else {
 			select {
 			case <-shutdown:
 				running = false
 			default:
-				errorLog.Println("Error accepting connection: " + err.Error())
+				log.Println("Error accepting connection: " + err.Error())
 			}
 		}
 	}
 	// Wait for still-running handler Go routines to finish
 	wg.Wait()
-	errorLog.Println("Exiting.")
+	log.Println("Exiting.")
 
 	// Exit successfully
 	return 0

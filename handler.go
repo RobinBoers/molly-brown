@@ -35,36 +35,36 @@ func isSubdir(subdir, superdir string) (bool, error) {
     return false, nil
 }
 
-func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan LogEntry, errorLog *log.Logger, wg *sync.WaitGroup) {
+func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan LogEntry, wg *sync.WaitGroup) {
 	defer conn.Close()
 	defer wg.Done()
 	var tlsConn (*tls.Conn) = conn.(*tls.Conn)
-	var log LogEntry
-	log.Time = time.Now()
-	log.RemoteAddr = conn.RemoteAddr()
-	log.RequestURL = "-"
-	log.Status = 0
+	var logEntry LogEntry
+	logEntry.Time = time.Now()
+	logEntry.RemoteAddr = conn.RemoteAddr()
+	logEntry.RequestURL = "-"
+	logEntry.Status = 0
 	if accessLogEntries != nil {
-		defer func() { accessLogEntries <- log }()
+		defer func() { accessLogEntries <- logEntry }()
 	}
 
 	// Read request
-	URL, err := readRequest(conn, &log, errorLog)
+	URL, err := readRequest(conn, &logEntry)
 	if err != nil {
 		return
 	}
 
 	// Enforce client certificate validity
 	clientCerts := tlsConn.ConnectionState().PeerCertificates
-	enforceCertificateValidity(clientCerts, conn, &log)
-	if log.Status != 0 {
+	enforceCertificateValidity(clientCerts, conn, &logEntry)
+	if logEntry.Status != 0 {
 		return
 	}
 
 	// Reject non-gemini schemes
 	if URL.Scheme != "gemini" {
 		conn.Write([]byte("53 No proxying to non-Gemini content!\r\n"))
-		log.Status = 53
+		logEntry.Status = 53
 		return
 	}
 
@@ -76,14 +76,14 @@ func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan Log
 	}
 	if requestedHost != config.Hostname || (URL.Port() != "" && URL.Port() != strconv.Itoa(config.Port)) {
 		conn.Write([]byte("53 No proxying to other hosts or ports!\r\n"))
-		log.Status = 53
+		logEntry.Status = 53
 		return
 	}
 
 	// Fail if there are dots in the path
 	if strings.Contains(URL.Path, "..") {
 		conn.Write([]byte("50 Your directory traversal technique has been defeated!\r\n"))
-		log.Status = 50
+		logEntry.Status = 50
 		return
 	}
 
@@ -91,23 +91,23 @@ func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan Log
 	raw_path := resolvePath(URL.Path, config)
 	path, err := filepath.EvalSymlinks(raw_path)
 	if err!= nil {
-		errorLog.Println("Error evaluating path " + raw_path + " for symlinks: " + err.Error())
+		log.Println("Error evaluating path " + raw_path + " for symlinks: " + err.Error())
 		conn.Write([]byte("51 Not found!\r\n"))
-		log.Status = 51
+		logEntry.Status = 51
 	}
 
 	// If symbolic links have been used to escape the intended document directory,
 	// deny all knowledge
 	isSub, err := isSubdir(path, config.DocBase)
 	if err != nil {
-		errorLog.Println("Error testing whether path " + path + " is below DocBase: " + err.Error())
+		log.Println("Error testing whether path " + path + " is below DocBase: " + err.Error())
 	}
 	if !isSub {
-		errorLog.Println("Refusing to follow simlink from " + raw_path + " outside of DocBase!")
+		log.Println("Refusing to follow simlink from " + raw_path + " outside of DocBase!")
 	}
 	if err != nil || !isSub {
 		conn.Write([]byte("51 Not found!\r\n"))
-		log.Status = 51
+		logEntry.Status = 51
 		return
 	}
 
@@ -115,31 +115,31 @@ func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan Log
 	// Fail ASAP if the URL has mapped to a sensitive file
 	if path == config.CertPath || path == config.KeyPath || path == config.AccessLog || path == config.ErrorLog || filepath.Base(path) == ".molly" {
 		conn.Write([]byte("51 Not found!\r\n"))
-		log.Status = 51
+		logEntry.Status = 51
 		return
 	}
 
 	// Read Molly files
 	if config.ReadMollyFiles {
-		parseMollyFiles(path, &config, errorLog)
+		parseMollyFiles(path, &config)
 	}
 
 	// Check whether this URL is in a certificate zone
-	handleCertificateZones(URL, clientCerts, config, conn, &log)
-	if log.Status != 0 {
+	handleCertificateZones(URL, clientCerts, config, conn, &logEntry)
+	if logEntry.Status != 0 {
 		return
 	}
 
 	// Check for redirects
-	handleRedirects(URL, config, conn, &log, errorLog)
-	if log.Status != 0 {
+	handleRedirects(URL, config, conn, &logEntry)
+	if logEntry.Status != 0 {
 		return
 	}
 
 	// Check whether this URL is mapped to an SCGI app
 	for scgiPath, scgiSocket := range config.SCGIPaths {
 		if strings.HasPrefix(URL.Path, scgiPath) {
-			handleSCGI(URL, scgiPath, scgiSocket, config, &log, errorLog, conn)
+			handleSCGI(URL, scgiPath, scgiSocket, config, &logEntry, conn)
 			return
 		}
 	}
@@ -147,8 +147,8 @@ func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan Log
 	// Check whether this URL is in a configured CGI path
 	for _, cgiPath := range config.CGIPaths {
 		if strings.HasPrefix(path, cgiPath) {
-			handleCGI(config, path, cgiPath, URL, &log, errorLog, conn)
-			if log.Status != 0 {
+			handleCGI(config, path, cgiPath, URL, &logEntry, conn)
+			if logEntry.Status != 0 {
 				return
 			}
 		}
@@ -158,50 +158,50 @@ func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan Log
 	info, err := os.Stat(path)
 	if os.IsNotExist(err) || os.IsPermission(err) {
 		conn.Write([]byte("51 Not found!\r\n"))
-		log.Status = 51
+		logEntry.Status = 51
 		return
 	} else if err != nil {
-		errorLog.Println("Error getting info for file " + path + ": " + err.Error())
+		log.Println("Error getting info for file " + path + ": " + err.Error())
 		conn.Write([]byte("40 Temporary failure!\r\n"))
-		log.Status = 40
+		logEntry.Status = 40
 		return
 	} else if uint64(info.Mode().Perm())&0444 != 0444 {
 		conn.Write([]byte("51 Not found!\r\n"))
-		log.Status = 51
+		logEntry.Status = 51
 		return
 	}
 
 	// Finally, serve the file or directory
 	if info.IsDir() {
-		serveDirectory(URL, path, &log, conn, config, errorLog)
+		serveDirectory(URL, path, &logEntry, conn, config)
 	} else {
-		serveFile(path, &log, conn, config, errorLog)
+		serveFile(path, &logEntry, conn, config)
 	}
 }
 
-func readRequest(conn net.Conn, log *LogEntry, errorLog *log.Logger) (*url.URL, error) {
+func readRequest(conn net.Conn, logEntry *LogEntry) (*url.URL, error) {
 	reader := bufio.NewReaderSize(conn, 1024)
 	request, overflow, err := reader.ReadLine()
 	if overflow {
 		conn.Write([]byte("59 Request too long!\r\n"))
-		log.Status = 59
+		logEntry.Status = 59
 		return nil, errors.New("Request too long")
 	} else if err != nil {
-		errorLog.Println("Error reading request from " + conn.RemoteAddr().String() + ": " + err.Error())
+		log.Println("Error reading request from " + conn.RemoteAddr().String() + ": " + err.Error())
 		conn.Write([]byte("40 Unknown error reading request!\r\n"))
-		log.Status = 40
+		logEntry.Status = 40
 		return nil, errors.New("Error reading request")
 	}
 
 	// Parse request as URL
 	URL, err := url.Parse(string(request))
 	if err != nil {
-		errorLog.Println("Error parsing request URL " + string(request) + ": " + err.Error())
+		log.Println("Error parsing request URL " + string(request) + ": " + err.Error())
 		conn.Write([]byte("59 Error parsing URL!\r\n"))
-		log.Status = 59
+		logEntry.Status = 59
 		return nil, errors.New("Bad URL in request")
 	}
-	log.RequestURL = URL.String()
+	logEntry.RequestURL = URL.String()
 
 	// Set implicit scheme
 	if URL.Scheme == "" {
@@ -225,17 +225,17 @@ func resolvePath(path string, config Config) string {
 	return path
 }
 
-func handleRedirects(URL *url.URL, config Config, conn net.Conn, log *LogEntry, errorLog *log.Logger) {
-	handleRedirectsInner(URL, config.TempRedirects, 30, conn, log, errorLog)
-	handleRedirectsInner(URL, config.PermRedirects, 31, conn, log, errorLog)
+func handleRedirects(URL *url.URL, config Config, conn net.Conn, logEntry *LogEntry) {
+	handleRedirectsInner(URL, config.TempRedirects, 30, conn, logEntry)
+	handleRedirectsInner(URL, config.PermRedirects, 31, conn, logEntry)
 }
 
-func handleRedirectsInner(URL *url.URL, redirects map[string]string, status int, conn net.Conn, log *LogEntry, errorLog *log.Logger) {
+func handleRedirectsInner(URL *url.URL, redirects map[string]string, status int, conn net.Conn, logEntry *LogEntry) {
 	strStatus := strconv.Itoa(status)
 	for src, dst := range redirects {
 		compiled, err := regexp.Compile(src)
 		if err != nil {
-			errorLog.Println("Error compiling redirect regexp " + src + ": " + err.Error())
+			log.Println("Error compiling redirect regexp " + src + ": " + err.Error())
 			continue
 		}
 		if compiled.MatchString(URL.Path) {
@@ -245,42 +245,42 @@ func handleRedirectsInner(URL *url.URL, redirects map[string]string, status int,
 				new_target = URL.String()
 			}
 			conn.Write([]byte(strStatus + " " + new_target + "\r\n"))
-			log.Status = status
+			logEntry.Status = status
 			return
 		}
 	}
 }
 
-func serveDirectory(URL *url.URL, path string, log *LogEntry, conn net.Conn, config Config, errorLog *log.Logger) {
+func serveDirectory(URL *url.URL, path string, logEntry *LogEntry, conn net.Conn, config Config) {
 	// Redirect to add trailing slash if missing
 	// (otherwise relative links don't work properly)
 	if !strings.HasSuffix(URL.Path, "/") {
 		URL.Path += "/"
 		conn.Write([]byte(fmt.Sprintf("31 %s\r\n", URL.String())))
-		log.Status = 31
+		logEntry.Status = 31
 		return
 	}
 	// Check for index.gmi if path is a directory
 	index_path := filepath.Join(path, "index."+config.GeminiExt)
 	index_info, err := os.Stat(index_path)
 	if err == nil && uint64(index_info.Mode().Perm())&0444 == 0444 {
-		serveFile(index_path, log, conn, config, errorLog)
+		serveFile(index_path, logEntry, conn, config)
 		// Serve a generated listing
 	} else {
 		listing, err := generateDirectoryListing(URL, path, config)
 		if err != nil {
-			errorLog.Println("Error generating listing for directory " + path + ": " + err.Error())
+			log.Println("Error generating listing for directory " + path + ": " + err.Error())
 			conn.Write([]byte("40 Server error!\r\n"))
-			log.Status = 40
+			logEntry.Status = 40
 			return
 		}
 		conn.Write([]byte("20 text/gemini\r\n"))
-		log.Status = 20
+		logEntry.Status = 20
 		conn.Write([]byte(listing))
 	}
 }
 
-func serveFile(path string, log *LogEntry, conn net.Conn, config Config, errorLog *log.Logger) {
+func serveFile(path string, logEntry *LogEntry, conn net.Conn, config Config) {
 	// Get MIME type of files
 	ext := filepath.Ext(path)
 	var mimeType string
@@ -311,14 +311,14 @@ func serveFile(path string, log *LogEntry, conn net.Conn, config Config, errorLo
 
 	f, err := os.Open(path)
 	if err != nil {
-		errorLog.Println("Error reading file " + path + ": " + err.Error())
+		log.Println("Error reading file " + path + ": " + err.Error())
 		conn.Write([]byte("50 Error!\r\n"))
-		log.Status = 50
+		logEntry.Status = 50
 		return
 	}
 	defer f.Close()
 
 	conn.Write([]byte(fmt.Sprintf("20 %s\r\n", mimeType)))
 	io.Copy(conn, f)
-	log.Status = 20
+	logEntry.Status = 20
 }
