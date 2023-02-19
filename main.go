@@ -104,10 +104,11 @@ func do_main(config Config) int {
 		log.Println("Error loading TLS keypair: " + err.Error())
 		return 1
 	}
-	tlscfg := &tls.Config{
-		Certificates: []tls.Certificate{cert},
-		MinVersion:   tls.VersionTLS12,
-		ClientAuth:   tls.RequestClientCert,
+	var tlscfg tls.Config
+	tlscfg.Certificates = []tls.Certificate{cert}
+	tlscfg.MinVersion = tls.VersionTLS12
+	if len(config.CertificateZones) > 0 {
+		tlscfg.ClientAuth = tls.RequestClientCert
 	}
 
 	// Try to chdir to /, so we don't block any mountpoints
@@ -125,7 +126,7 @@ func do_main(config Config) int {
 	}
 
 	// Create TLS listener
-	listener, err := tls.Listen("tcp", ":"+strconv.Itoa(config.Port), tlscfg)
+	listener, err := tls.Listen("tcp", ":"+strconv.Itoa(config.Port), &tlscfg)
 	if err != nil {
 		log.Println("Error creating TLS listener: " + err.Error())
 		return 1
