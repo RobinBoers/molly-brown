@@ -53,7 +53,7 @@ func getUserInfo(config Config) (userInfo, error) {
 	}
 	ui.need_drop = ui.is_setuid || ui.is_setgid || ui.root_user || ui.root_prim_group || ui.root_supp_group
 
-	if ui.need_drop {
+	if ui.root_user || ui.root_prim_group {
 		nobody_user, err := user.Lookup(config.UnprivUsername)
 		if err != nil {
 			log.Println("Running as root but could not lookup UID for user " + config.UnprivUsername + ": " + err.Error())
@@ -77,28 +77,42 @@ func DropPrivs(ui userInfo) error {
 	}
 
 	// Drop supplementary groups
-	if ui.root_supp_group {
-		err := syscall.Setgroups([]int{})
-		if err != nil {
-			log.Println("Could not unset supplementary groups: " + err.Error())
+	err := syscall.Setgroups([]int{})
+	if err != nil {
+		// Log failure
+		log.Println("Could not unset supplementary groups: " + err.Error())
+		// Make this fatal if root was amongst supplementary groups
+		if ui.root_supp_group {
 			return err
 		}
 	}
 
-	// Setguid()
-	if ui.root_prim_group {
-		err := syscall.Setgid(ui.unpriv_gid)
+	// Setgid()
+	if ui.root_prim_group || ui.is_setgid {
+		var target_gid int
+		if ui.root_prim_group {
+			target_gid = ui.unpriv_gid
+		} else {
+			target_gid = ui.gid
+		}
+		err := syscall.Setgid(target_gid)
 		if err != nil {
-			log.Println("Could not setgid to " + strconv.Itoa(ui.unpriv_gid) + ": " + err.Error())
+			log.Println("Could not setgid to " + strconv.Itoa(target_gid) + ": " + err.Error())
 			return err
 		}
 	}
 
 	// Setuid()
-	if ui.root_user {
-		err := syscall.Setuid(ui.unpriv_uid)
+	if ui.root_user || ui.is_setuid {
+		var target_uid int
+		if ui.root_user {
+			target_uid = ui.unpriv_uid
+		} else {
+			target_uid = ui.uid
+		}
+		err := syscall.Setuid(target_uid)
 		if err != nil {
-			log.Println("Could not setuid to " + strconv.Itoa(ui.unpriv_uid) + ": " + err.Error())
+			log.Println("Could not setuid to " + strconv.Itoa(target_uid) + ": " + err.Error())
 			return err
 		}
 	}
