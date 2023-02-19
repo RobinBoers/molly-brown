@@ -7,7 +7,6 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"os/user"
 	"strconv"
 	"sync"
 	"syscall"
@@ -44,18 +43,7 @@ func main() {
 
 	// If we are running as root, find the UID of the "nobody" user, before a
 	// chroot() possibly stops seeing /etc/passwd
-	uid := os.Getuid()
-	nobody_uid := -1
-	if uid == 0 {
-		nobody_user, err := user.Lookup(config.UnprivUsername)
-		if err != nil {
-			log.Fatal("Running as root but could not lookup UID for user " + config.UnprivUsername + ": " + err.Error())
-		}
-		nobody_uid, err = strconv.Atoi(nobody_user.Uid)
-		if err != nil {
-			log.Fatal("Running as root but could not lookup UID for user " + config.UnprivUsername + ": " + err.Error())
-		}
-	}
+	privInfo := getUserInfo(config)
 
 	// Chroot, if asked
 	if config.ChrootDir != "" {
@@ -120,7 +108,7 @@ func main() {
         }
 
 	// Apply security restrictions
-	enableSecurityRestrictions(config, nobody_uid, errorLog)
+	enableSecurityRestrictions(config, privInfo, errorLog)
 
 	// Create TLS listener
 	listener, err := tls.Listen("tcp", ":"+strconv.Itoa(config.Port), tlscfg)
