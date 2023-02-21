@@ -9,6 +9,7 @@ import (
 	"log"
 	"mime"
 	"net"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -289,6 +290,7 @@ func serveFile(path string, logEntry *LogEntry, conn net.Conn, config Config) {
 	} else {
 		mimeType = mime.TypeByExtension(ext)
 	}
+
 	// Override extension-based MIME type
 	for pathRegex, newType := range config.MimeOverrides {
 		overridden, err := regexp.Match(pathRegex, []byte(path))
@@ -296,19 +298,8 @@ func serveFile(path string, logEntry *LogEntry, conn net.Conn, config Config) {
 			mimeType = newType
 		}
 	}
-	// Set a generic MIME type if the extension wasn't recognised
-	if mimeType == "" {
-		mimeType = "application/octet-stream"
-	}
-	// Add charset parameter
-	if strings.HasPrefix(mimeType, "text/gemini") && config.DefaultEncoding != "" {
-		mimeType += "; charset=" + config.DefaultEncoding
-	}
-	// Add lang parameter
-	if strings.HasPrefix(mimeType, "text/gemini") && config.DefaultLang != "" {
-		mimeType += "; lang=" + config.DefaultLang
-	}
 
+	// Try to open the file
 	f, err := os.Open(path)
 	if err != nil {
 		log.Println("Error reading file " + path + ": " + err.Error())
@@ -317,6 +308,32 @@ func serveFile(path string, logEntry *LogEntry, conn net.Conn, config Config) {
 		return
 	}
 	defer f.Close()
+
+	// If the file extension wasn't recognised, or there's not one, use bytes
+	// from the now open file to sniff!
+	if mimeType == "" {
+		buffer := make([]byte, 512)
+		n, err := f.Read(buffer)
+		if err == nil {
+			_, err = f.Seek(0, 0)
+		}
+		if err != nil {
+			log.Println("Error peeking into file " + path + ": " + err.Error())
+			conn.Write([]byte("50 Error!\r\n"))
+			logEntry.Status = 50
+			return
+		}
+		mimeType = http.DetectContentType(buffer[0:n])
+	}
+
+	// Add charset parameter
+	if strings.HasPrefix(mimeType, "text/gemini") && config.DefaultEncoding != "" {
+		mimeType += "; charset=" + config.DefaultEncoding
+	}
+	// Add lang parameter
+	if strings.HasPrefix(mimeType, "text/gemini") && config.DefaultLang != "" {
+		mimeType += "; lang=" + config.DefaultLang
+	}
 
 	conn.Write([]byte(fmt.Sprintf("20 %s\r\n", mimeType)))
 	io.Copy(conn, f)
