@@ -21,7 +21,7 @@ func enableSecurityRestrictions(config Config, ui userInfo) error {
 
 	// Unveil the configured document base as readable.
 	log.Println("Unveiling \"" + config.DocBase + "\" as readable.")
-	err := unix.Unveil(config.DocBase, "r")
+	err = unix.Unveil(config.DocBase, "r")
 	if err != nil {
 		log.Println("Could not unveil DocBase: " + err.Error())
 		return err
@@ -72,4 +72,6 @@ func enableSecurityRestrictions(config Config, ui userInfo) error {
 		log.Println("Could not pledge: " + err.Error())
 		return err
 	}
+
+	return nil
 }
