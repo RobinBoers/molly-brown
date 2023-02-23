@@ -2,6 +2,9 @@ package main
 
 import (
 	"crypto/tls"
+	"crypto/x509"
+	"encoding/pem"
+	"io"
 	"log"
 	"os"
 	"os/signal"
@@ -49,6 +52,35 @@ func launch(config Config, privInfo userInfo) int {
 		log.Println("Refusing to use world-readable TLS key file " + config.KeyPath)
 		return 1
 	}
+	// Check certificate hostname matches server hostname
+	info, err = os.Stat(config.CertPath)
+	if err != nil {
+		log.Println("Error opening TLS certificate file: " + err.Error())
+		return 1
+	}
+	certFile, err := os.Open(config.CertPath)
+	if err != nil {
+		log.Println("Error opening TLS certificate file: " + err.Error())
+		return 1
+	}
+	certBytes, err := io.ReadAll(certFile)
+	if err != nil {
+		log.Println("Error reading TLS certificate file: " + err.Error())
+		return 1
+	}
+	certDer, _ := pem.Decode(certBytes)
+	if certDer == nil {
+		log.Println("Error decoding TLS certificate file: " + err.Error())
+		return 1
+	}
+	certx509, err := x509.ParseCertificate(certDer.Bytes)
+	err = certx509.VerifyHostname(config.Hostname)
+	if err != nil {
+		log.Println("Invalid TLS certificate: " + err.Error())
+		return 1
+	}
+
+	// Load certificate and private key
 	cert, err := tls.LoadX509KeyPair(config.CertPath, config.KeyPath)
 	if err != nil {
 		log.Println("Error loading TLS keypair: " + err.Error())
