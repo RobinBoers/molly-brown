@@ -56,7 +56,11 @@ func launch(config Config, privInfo userInfo) int {
 	}
 	var tlscfg tls.Config
 	tlscfg.Certificates = []tls.Certificate{cert}
-	tlscfg.MinVersion = tls.VersionTLS12
+	if config.AllowTLS12 {
+		tlscfg.MinVersion = tls.VersionTLS12
+	} else {
+		tlscfg.MinVersion = tls.VersionTLS13
+	}
 	if len(config.CertificateZones) > 0 {
 		tlscfg.ClientAuth = tls.RequestClientCert
 	}

@@ -382,7 +382,16 @@ startup, database connection etc. on each request).
   SCGI applications are responsible for generating their own response
   headers.
 
-### Certificate zones
+### TLS options
+
+* `AllowTLS12` (boolean): if true, Molly Brown will accept connections
+  from clients using TLS version 1.2 or later (1.2 is the bare minimum
+  allowed by the Gemini spec).  If set to false, Molly Brown will
+  instead require TLS version 1.3 or later - 1.2 to 1.3 was a big
+  change and drastic simplification of the TLS spec which discarded a
+  wide range of old and insecure configurations.  (default value `true`)
+
+#### Certificate zones
 
 Molly Brown allows you to use client certificates to restrict access
 to certain resources (which may be static or dynamic).  The overall

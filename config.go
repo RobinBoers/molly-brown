@@ -28,6 +28,7 @@ type Config struct {
 	CGIPaths              []string
 	SCGIPaths             map[string]string
 	CertificateZones      map[string][]string
+	AllowTLS12            bool
 	DirectorySort         string
 	DirectorySubdirsFirst bool
 	DirectoryReverse      bool
@@ -68,6 +69,7 @@ func getConfig(filename string) (Config, error) {
 	config.PermRedirects = make(map[string]string)
 	config.CGIPaths = make([]string, 0)
 	config.SCGIPaths = make(map[string]string)
+	config.AllowTLS12 = true
 	config.DirectorySort = "Name"
 	config.DirectorySubdirsFirst = false
 
