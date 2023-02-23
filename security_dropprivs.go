@@ -26,7 +26,7 @@ type userInfo struct {
 	unpriv_gid int
 }
 
-func getUserInfo(config Config) (userInfo, error) {
+func getUserInfo(unprivUser string) (userInfo, error) {
 	var ui userInfo
 	ui.uid = os.Getuid()
 	ui.euid = os.Geteuid()
@@ -54,15 +54,15 @@ func getUserInfo(config Config) (userInfo, error) {
 	ui.need_drop = ui.is_setuid || ui.is_setgid || ui.root_user || ui.root_prim_group || ui.root_supp_group
 
 	if ui.root_user || ui.root_prim_group {
-		nobody_user, err := user.Lookup(config.UnprivUsername)
+		nobody_user, err := user.Lookup(unprivUser)
 		if err != nil {
-			log.Println("Running as root but could not lookup UID for user " + config.UnprivUsername + ": " + err.Error())
+			log.Println("Running as root but could not lookup UID for user " + unprivUser + ": " + err.Error())
 			return ui, err
 		}
 		ui.unpriv_uid, err = strconv.Atoi(nobody_user.Uid)
 		ui.unpriv_gid, err = strconv.Atoi(nobody_user.Gid)
 		if err != nil {
-			log.Println("Running as root but could not lookup UID for user " + config.UnprivUsername + ": " + err.Error())
+			log.Println("Running as root but could not lookup UID for user " + unprivUser + ": " + err.Error())
 			return ui, err
 		}
 	}

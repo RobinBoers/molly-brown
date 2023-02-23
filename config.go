@@ -16,8 +16,6 @@ type Config struct {
 	KeyPath               string
 	DocBase               string
 	HomeDocBase           string
-	ChrootDir             string
-	UnprivUsername        string
 	GeminiExt             string
 	DefaultLang           string
 	DefaultEncoding       string
@@ -61,8 +59,6 @@ func getConfig(filename string) (Config, error) {
 	config.KeyPath = "key.pem"
 	config.DocBase = "/var/gemini/"
 	config.HomeDocBase = "users"
-	config.ChrootDir = ""
-	config.UnprivUsername = "nobody"
 	config.GeminiExt = "gmi"
 	config.DefaultLang = ""
 	config.DefaultEncoding = ""
@@ -96,31 +92,29 @@ func getConfig(filename string) (Config, error) {
 		return config, errors.New("Invalid DirectorySort value.")
 	}
 
-	// Validate chroot() dir
-	if config.ChrootDir != "" {
-		config.ChrootDir, err = filepath.Abs(config.ChrootDir)
+	// Absolutise paths
+	config.DocBase, err = filepath.Abs(config.DocBase)
+	if err != nil {
+		return config, err
+	}
+	config.CertPath, err = filepath.Abs(config.CertPath)
+	if err != nil {
+		return config, err
+	}
+	config.KeyPath, err = filepath.Abs(config.KeyPath)
+	if err != nil {
+		return config, err
+	}
+	if config.AccessLog != "" && config.AccessLog != "-" {
+		config.AccessLog, err = filepath.Abs(config.AccessLog)
 		if err != nil {
-			return config, err
-		}
-		_, err := os.Stat(config.ChrootDir)
-		if os.IsNotExist(err) {
 			return config, err
 		}
 	}
-
-	// Absolutise DocBase, relative to the chroot dir
-	if !filepath.IsAbs(config.DocBase) {
-		abs, err := filepath.Abs(config.DocBase)
+	if config.ErrorLog != "" {
+		config.ErrorLog, err = filepath.Abs(config.ErrorLog)
 		if err != nil {
 			return config, err
-		}
-		if config.ChrootDir != "" {
-			config.DocBase, err = filepath.Rel(config.ChrootDir, abs)
-			if err != nil {
-				return config, err
-			}
-		} else {
-			config.DocBase = abs
 		}
 	}
 
@@ -144,8 +138,9 @@ func getConfig(filename string) (Config, error) {
 
 	// Absolutise SCGI paths
 	for index, scgiPath := range config.SCGIPaths {
-		if !filepath.IsAbs(scgiPath) {
-			config.SCGIPaths[index] = filepath.Join(config.DocBase, scgiPath)
+		config.SCGIPaths[index], err = filepath.Abs( scgiPath)
+		if err != nil {
+			return config, err
 		}
 	}
 
