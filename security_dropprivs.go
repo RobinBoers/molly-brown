@@ -77,12 +77,10 @@ func DropPrivs(ui userInfo) error {
 	}
 
 	// Drop supplementary groups
-	err := syscall.Setgroups([]int{})
-	if err != nil {
-		// Log failure
-		log.Println("Could not unset supplementary groups: " + err.Error())
-		// Make this fatal if root was amongst supplementary groups
-		if ui.root_supp_group {
+	if ui.root_supp_goup {
+		err := syscall.Setgroups([]int{})
+		if err != nil {
+			log.Println("Could not unset supplementary groups: " + err.Error())
 			return err
 		}
 	}
