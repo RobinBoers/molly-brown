@@ -17,6 +17,7 @@ import (
 var VERSION = "0.0.0"
 
 func launch(config Config, privInfo userInfo) int {
+	var err error
 
 	// Open log files
 	if config.ErrorLog != "" {
@@ -34,7 +35,7 @@ func launch(config Config, privInfo userInfo) int {
 	if config.AccessLog == "-" {
 		accessLogFile = os.Stdout
 	} else if config.AccessLog != "" {
-		accessLogFile, err := os.OpenFile(config.AccessLog, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		accessLogFile, err = os.OpenFile(config.AccessLog, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
 			log.Println("Error opening access log file: " + err.Error())
 			return 1
@@ -130,7 +131,7 @@ func launch(config Config, privInfo userInfo) int {
 	if config.AccessLog == "" {
 		accessLogEntries = nil
 	} else {
-		accessLogEntries := make(chan LogEntry, 10)
+		accessLogEntries = make(chan LogEntry, 10)
 		go func() {
 			for {
 				entry := <-accessLogEntries
