@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"sync"
 	"syscall"
+	"time"
 )
 
 var VERSION = "0.0.0"
@@ -78,6 +79,11 @@ func launch(config Config, privInfo userInfo) int {
 	if err != nil {
 		log.Println("Invalid TLS certificate: " + err.Error())
 		return 1
+	}
+	// Warn if certificate is expired
+	now := time.Now()
+	if now.After(certx509.NotAfter) {
+		log.Println("Hey, your certificate expired on " + certx509.NotAfter.String() + "!!!")
 	}
 
 	// Load certificate and private key
