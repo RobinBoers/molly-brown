@@ -95,13 +95,11 @@ func launch(config Config, privInfo userInfo) int {
 	}
 	var tlscfg tls.Config
 	tlscfg.Certificates = []tls.Certificate{cert}
+	tlscfg.ClientAuth = tls.RequestClientCert
 	if config.AllowTLS12 {
 		tlscfg.MinVersion = tls.VersionTLS12
 	} else {
 		tlscfg.MinVersion = tls.VersionTLS13
-	}
-	if len(config.CertificateZones) > 0 {
-		tlscfg.ClientAuth = tls.RequestClientCert
 	}
 
 	// Try to chdir to /, so we don't block any mountpoints
