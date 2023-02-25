@@ -88,43 +88,6 @@ func handleGeminiRequest(conn net.Conn, sysConfig SysConfig, config UserConfig, 
 		return
 	}
 
-	// Resolve URI path to actual filesystem path, including following symlinks
-	raw_path := resolvePath(URL.Path, sysConfig)
-	path, err := filepath.EvalSymlinks(raw_path)
-	if err!= nil {
-		log.Println("Error evaluating path " + raw_path + " for symlinks: " + err.Error())
-		conn.Write([]byte("51 Not found!\r\n"))
-		logEntry.Status = 51
-	}
-
-	// If symbolic links have been used to escape the intended document directory,
-	// deny all knowledge
-	isSub, err := isSubdir(path, sysConfig.DocBase)
-	if err != nil {
-		log.Println("Error testing whether path " + path + " is below DocBase: " + err.Error())
-	}
-	if !isSub {
-		log.Println("Refusing to follow simlink from " + raw_path + " outside of DocBase!")
-	}
-	if err != nil || !isSub {
-		conn.Write([]byte("51 Not found!\r\n"))
-		logEntry.Status = 51
-		return
-	}
-
-	// Paranoid security measures:
-	// Fail ASAP if the URL has mapped to a sensitive file
-	if path == sysConfig.CertPath || path == sysConfig.KeyPath || path == sysConfig.AccessLog || path == sysConfig.ErrorLog || filepath.Base(path) == ".molly" {
-		conn.Write([]byte("51 Not found!\r\n"))
-		logEntry.Status = 51
-		return
-	}
-
-	// Read Molly files
-	if sysConfig.ReadMollyFiles {
-		config = parseMollyFiles(path, sysConfig.DocBase, config)
-	}
-
 	// Check whether this URL is in a certificate zone
 	handleCertificateZones(URL, clientCerts, config, conn, &logEntry)
 	if logEntry.Status != 0 {
@@ -145,6 +108,82 @@ func handleGeminiRequest(conn net.Conn, sysConfig SysConfig, config UserConfig, 
 		}
 	}
 
+	// Resolve URI path to actual filesystem path
+	path := resolvePath(URL.Path, sysConfig)
+
+	// Read Molly files.  Yes, even before checking if `path` exists!
+	// /foo/bar/baz.gmi may not exist on the disk but /foo/.molly may and it
+	// may inform us that /foo/bar/baz.gmi ought to redirect to somewhere which
+	// *does* exist on disk!
+	if sysConfig.ReadMollyFiles {
+		config = parseMollyFiles(path, sysConfig.DocBase, config)
+		// We may have picked up new cert zones and/or redirects above, so:
+		handleCertificateZones(URL, clientCerts, config, conn, &logEntry)
+		if logEntry.Status != 0 {
+			return
+		}
+		handleRedirects(URL, config, conn, &logEntry)
+		if logEntry.Status != 0 {
+			return
+		}
+	}
+
+	// Okay, at this point we really are committed to looking on disk for `path`.
+	// Make sure it exists, and is world readable, and if it's a symbolic link,
+	// follow it and check these things again!
+	rawPath := path
+	var info os.FileInfo
+	for {
+		info, err = os.Stat(path)
+		if os.IsNotExist(err) || os.IsPermission(err) {
+			conn.Write([]byte("51 Not found!\r\n"))
+			logEntry.Status = 51
+			return
+		} else if err != nil {
+			log.Println("Error getting info for file " + path + ": " + err.Error())
+			conn.Write([]byte("40 Temporary failure!\r\n"))
+			logEntry.Status = 40
+			return
+		} else if uint64(info.Mode().Perm())&0444 != 0444 {
+			conn.Write([]byte("51 Not found!\r\n"))
+			logEntry.Status = 51
+			return
+		}
+		newPath, err := filepath.EvalSymlinks(path)
+		if err!= nil {
+			log.Println("Error evaluating path " + path + " for symlinks: " + err.Error())
+			conn.Write([]byte("51 Not found!\r\n"))
+			logEntry.Status = 51
+		}
+		if newPath == path {
+			break
+		}
+		path = newPath
+	}
+
+	// If symbolic links have been used to escape the intended document directory,
+	// deny all knowledge
+	isSub, err := isSubdir(path, sysConfig.DocBase)
+	if err != nil {
+		log.Println("Error testing whether path " + path + " is below DocBase: " + err.Error())
+	}
+	if !isSub {
+		log.Println("Refusing to follow simlink from " + rawPath + " outside of DocBase!")
+	}
+	if err != nil || !isSub {
+		conn.Write([]byte("51 Not found!\r\n"))
+		logEntry.Status = 51
+		return
+	}
+
+	// Refuse to serve sensitive files even if they are inside DocBase and
+	// world-readable because if they are it's likely a mistake
+	if path == sysConfig.KeyPath || path == sysConfig.AccessLog || path == sysConfig.ErrorLog || filepath.Base(path) == ".molly" {
+		conn.Write([]byte("51 Not found!\r\n"))
+		logEntry.Status = 51
+		return
+	}
+
 	// Check whether this URL is in a configured CGI path
 	for _, cgiPath := range sysConfig.CGIPaths {
 		if strings.HasPrefix(path, cgiPath) {
@@ -155,24 +194,7 @@ func handleGeminiRequest(conn net.Conn, sysConfig SysConfig, config UserConfig, 
 		}
 	}
 
-	// Fail if file does not exist or perms aren't right
-	info, err := os.Stat(path)
-	if os.IsNotExist(err) || os.IsPermission(err) {
-		conn.Write([]byte("51 Not found!\r\n"))
-		logEntry.Status = 51
-		return
-	} else if err != nil {
-		log.Println("Error getting info for file " + path + ": " + err.Error())
-		conn.Write([]byte("40 Temporary failure!\r\n"))
-		logEntry.Status = 40
-		return
-	} else if uint64(info.Mode().Perm())&0444 != 0444 {
-		conn.Write([]byte("51 Not found!\r\n"))
-		logEntry.Status = 51
-		return
-	}
-
-	// Finally, serve the file or directory
+	// Finally, serve a simple static file or directory
 	if info.IsDir() {
 		serveDirectory(URL, path, &logEntry, conn, config)
 	} else {
