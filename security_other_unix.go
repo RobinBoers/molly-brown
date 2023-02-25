@@ -2,7 +2,7 @@
 
 package main
 
-func enableSecurityRestrictions(config Config, ui userInfo) error {
+func enableSecurityRestrictions(config SysConfig, ui userInfo) error {
 
 	// Setuid to an unprivileged user
 	return DropPrivs(ui)

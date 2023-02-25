@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-func handleCGI(config Config, path string, cgiPath string, URL *url.URL, logEntry *LogEntry, conn net.Conn) {
+func handleCGI(config SysConfig, path string, cgiPath string, URL *url.URL, logEntry *LogEntry, conn net.Conn) {
 	// Find the shortest leading part of path which maps to an executable file.
 	// Call this part scriptPath, and everything after it pathInfo.
 	components := strings.Split(path, "/")
@@ -86,7 +86,7 @@ func handleCGI(config Config, path string, cgiPath string, URL *url.URL, logEntr
 	conn.Write(response)
 }
 
-func handleSCGI(URL *url.URL, scgiPath string, scgiSocket string, config Config, logEntry *LogEntry, conn net.Conn) {
+func handleSCGI(URL *url.URL, scgiPath string, scgiSocket string, config SysConfig, logEntry *LogEntry, conn net.Conn) {
 
 	// Connect to socket
 	socket, err := net.Dial("unix", scgiSocket)
@@ -148,7 +148,7 @@ func handleSCGI(URL *url.URL, scgiPath string, scgiSocket string, config Config,
 	}
 }
 
-func prepareCGIVariables(config Config, URL *url.URL, conn net.Conn, script_path string, path_info string) map[string]string {
+func prepareCGIVariables(config SysConfig, URL *url.URL, conn net.Conn, script_path string, path_info string) map[string]string {
 	vars := prepareGatewayVariables(config, URL, conn)
 	vars["GATEWAY_INTERFACE"] = "CGI/1.1"
 	vars["SCRIPT_PATH"] = script_path
@@ -156,7 +156,7 @@ func prepareCGIVariables(config Config, URL *url.URL, conn net.Conn, script_path
 	return vars
 }
 
-func prepareSCGIVariables(config Config, URL *url.URL, scgiPath string, conn net.Conn) map[string]string {
+func prepareSCGIVariables(config SysConfig, URL *url.URL, scgiPath string, conn net.Conn) map[string]string {
 	vars := prepareGatewayVariables(config, URL, conn)
 	vars["SCGI"] = "1"
 	vars["CONTENT_LENGTH"] = "0"
@@ -165,7 +165,7 @@ func prepareSCGIVariables(config Config, URL *url.URL, scgiPath string, conn net
 	return vars
 }
 
-func prepareGatewayVariables(config Config, URL *url.URL, conn net.Conn) map[string]string {
+func prepareGatewayVariables(config SysConfig, URL *url.URL, conn net.Conn) map[string]string {
 	vars := make(map[string]string)
 	vars["QUERY_STRING"] = URL.RawQuery
 	vars["REQUEST_METHOD"] = ""

@@ -16,12 +16,12 @@ import (
 
 var VERSION = "0.0.0"
 
-func launch(config Config, privInfo userInfo) int {
+func launch(sysConfig SysConfig, userConfig UserConfig, privInfo userInfo) int {
 	var err error
 
 	// Open log files
-	if config.ErrorLog != "" {
-		errorLogFile, err := os.OpenFile(config.ErrorLog, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if sysConfig.ErrorLog != "" {
+		errorLogFile, err := os.OpenFile(sysConfig.ErrorLog, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
 			log.Println("Error opening error log file: " + err.Error())
 			return 1
@@ -32,10 +32,10 @@ func launch(config Config, privInfo userInfo) int {
 	log.SetFlags(log.Ldate|log.Ltime)
 
 	var accessLogFile *os.File
-	if config.AccessLog == "-" {
+	if sysConfig.AccessLog == "-" {
 		accessLogFile = os.Stdout
-	} else if config.AccessLog != "" {
-		accessLogFile, err = os.OpenFile(config.AccessLog, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	} else if sysConfig.AccessLog != "" {
+		accessLogFile, err = os.OpenFile(sysConfig.AccessLog, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
 			log.Println("Error opening access log file: " + err.Error())
 			return 1
@@ -45,22 +45,22 @@ func launch(config Config, privInfo userInfo) int {
 
 	// Read TLS files, create TLS config
 	// Check key file permissions first
-	info, err := os.Stat(config.KeyPath)
+	info, err := os.Stat(sysConfig.KeyPath)
 	if err != nil {
 		log.Println("Error opening TLS key file: " + err.Error())
 		return 1
 	}
 	if uint64(info.Mode().Perm())&0444 == 0444 {
-		log.Println("Refusing to use world-readable TLS key file " + config.KeyPath)
+		log.Println("Refusing to use world-readable TLS key file " + sysConfig.KeyPath)
 		return 1
 	}
 	// Check certificate hostname matches server hostname
-	info, err = os.Stat(config.CertPath)
+	info, err = os.Stat(sysConfig.CertPath)
 	if err != nil {
 		log.Println("Error opening TLS certificate file: " + err.Error())
 		return 1
 	}
-	certFile, err := os.Open(config.CertPath)
+	certFile, err := os.Open(sysConfig.CertPath)
 	if err != nil {
 		log.Println("Error opening TLS certificate file: " + err.Error())
 		return 1
@@ -76,7 +76,7 @@ func launch(config Config, privInfo userInfo) int {
 		return 1
 	}
 	certx509, err := x509.ParseCertificate(certDer.Bytes)
-	err = certx509.VerifyHostname(config.Hostname)
+	err = certx509.VerifyHostname(sysConfig.Hostname)
 	if err != nil {
 		log.Println("Invalid TLS certificate: " + err.Error())
 		return 1
@@ -88,7 +88,7 @@ func launch(config Config, privInfo userInfo) int {
 	}
 
 	// Load certificate and private key
-	cert, err := tls.LoadX509KeyPair(config.CertPath, config.KeyPath)
+	cert, err := tls.LoadX509KeyPair(sysConfig.CertPath, sysConfig.KeyPath)
 	if err != nil {
 		log.Println("Error loading TLS keypair: " + err.Error())
 		return 1
@@ -96,7 +96,7 @@ func launch(config Config, privInfo userInfo) int {
 	var tlscfg tls.Config
 	tlscfg.Certificates = []tls.Certificate{cert}
 	tlscfg.ClientAuth = tls.RequestClientCert
-	if config.AllowTLS12 {
+	if sysConfig.AllowTLS12 {
 		tlscfg.MinVersion = tls.VersionTLS12
 	} else {
 		tlscfg.MinVersion = tls.VersionTLS13
@@ -110,14 +110,14 @@ func launch(config Config, privInfo userInfo) int {
         }
 
 	// Apply security restrictions
-	err = enableSecurityRestrictions(config, privInfo)
+	err = enableSecurityRestrictions(sysConfig, privInfo)
 	if err != nil {
 		log.Println("Exiting due to failure to apply security restrictions.")
 		return 1
 	}
 
 	// Create TLS listener
-	listener, err := tls.Listen("tcp", ":"+strconv.Itoa(config.Port), &tlscfg)
+	listener, err := tls.Listen("tcp", ":"+strconv.Itoa(sysConfig.Port), &tlscfg)
 	if err != nil {
 		log.Println("Error creating TLS listener: " + err.Error())
 		return 1
@@ -126,7 +126,7 @@ func launch(config Config, privInfo userInfo) int {
 
 	// Start log handling routines
 	var accessLogEntries chan LogEntry
-	if config.AccessLog == "" {
+	if sysConfig.AccessLog == "" {
 		accessLogEntries = nil
 	} else {
 		accessLogEntries = make(chan LogEntry, 10)
@@ -156,7 +156,7 @@ func launch(config Config, privInfo userInfo) int {
 		conn, err := listener.Accept()
 		if err == nil {
 			wg.Add(1)
-			go handleGeminiRequest(conn, config, accessLogEntries, &wg)
+			go handleGeminiRequest(conn, sysConfig, userConfig, accessLogEntries, &wg)
 		} else {
 			select {
 			case <-shutdown:

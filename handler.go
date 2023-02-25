@@ -36,7 +36,7 @@ func isSubdir(subdir, superdir string) (bool, error) {
     return false, nil
 }
 
-func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan LogEntry, wg *sync.WaitGroup) {
+func handleGeminiRequest(conn net.Conn, sysConfig SysConfig, config UserConfig, accessLogEntries chan LogEntry, wg *sync.WaitGroup) {
 	defer conn.Close()
 	defer wg.Done()
 	var tlsConn (*tls.Conn) = conn.(*tls.Conn)
@@ -75,7 +75,7 @@ func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan Log
 	if strings.HasSuffix(requestedHost, ".") {
 		requestedHost = requestedHost[:len(requestedHost)-1]
 	}
-	if requestedHost != config.Hostname || (URL.Port() != "" && URL.Port() != strconv.Itoa(config.Port)) {
+	if requestedHost != sysConfig.Hostname || (URL.Port() != "" && URL.Port() != strconv.Itoa(sysConfig.Port)) {
 		conn.Write([]byte("53 No proxying to other hosts or ports!\r\n"))
 		logEntry.Status = 53
 		return
@@ -89,7 +89,7 @@ func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan Log
 	}
 
 	// Resolve URI path to actual filesystem path, including following symlinks
-	raw_path := resolvePath(URL.Path, config)
+	raw_path := resolvePath(URL.Path, sysConfig)
 	path, err := filepath.EvalSymlinks(raw_path)
 	if err!= nil {
 		log.Println("Error evaluating path " + raw_path + " for symlinks: " + err.Error())
@@ -99,7 +99,7 @@ func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan Log
 
 	// If symbolic links have been used to escape the intended document directory,
 	// deny all knowledge
-	isSub, err := isSubdir(path, config.DocBase)
+	isSub, err := isSubdir(path, sysConfig.DocBase)
 	if err != nil {
 		log.Println("Error testing whether path " + path + " is below DocBase: " + err.Error())
 	}
@@ -114,15 +114,15 @@ func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan Log
 
 	// Paranoid security measures:
 	// Fail ASAP if the URL has mapped to a sensitive file
-	if path == config.CertPath || path == config.KeyPath || path == config.AccessLog || path == config.ErrorLog || filepath.Base(path) == ".molly" {
+	if path == sysConfig.CertPath || path == sysConfig.KeyPath || path == sysConfig.AccessLog || path == sysConfig.ErrorLog || filepath.Base(path) == ".molly" {
 		conn.Write([]byte("51 Not found!\r\n"))
 		logEntry.Status = 51
 		return
 	}
 
 	// Read Molly files
-	if config.ReadMollyFiles {
-		parseMollyFiles(path, &config)
+	if sysConfig.ReadMollyFiles {
+		config = parseMollyFiles(path, sysConfig.DocBase, config)
 	}
 
 	// Check whether this URL is in a certificate zone
@@ -138,17 +138,17 @@ func handleGeminiRequest(conn net.Conn, config Config, accessLogEntries chan Log
 	}
 
 	// Check whether this URL is mapped to an SCGI app
-	for scgiPath, scgiSocket := range config.SCGIPaths {
+	for scgiPath, scgiSocket := range sysConfig.SCGIPaths {
 		if strings.HasPrefix(URL.Path, scgiPath) {
-			handleSCGI(URL, scgiPath, scgiSocket, config, &logEntry, conn)
+			handleSCGI(URL, scgiPath, scgiSocket, sysConfig, &logEntry, conn)
 			return
 		}
 	}
 
 	// Check whether this URL is in a configured CGI path
-	for _, cgiPath := range config.CGIPaths {
+	for _, cgiPath := range sysConfig.CGIPaths {
 		if strings.HasPrefix(path, cgiPath) {
-			handleCGI(config, path, cgiPath, URL, &logEntry, conn)
+			handleCGI(sysConfig, path, cgiPath, URL, &logEntry, conn)
 			if logEntry.Status != 0 {
 				return
 			}
@@ -212,7 +212,7 @@ func readRequest(conn net.Conn, logEntry *LogEntry) (*url.URL, error) {
 	return URL, nil
 }
 
-func resolvePath(path string, config Config) string {
+func resolvePath(path string, config SysConfig) string {
 	// Handle tildes
 	if strings.HasPrefix(path, "/~") {
 		bits := strings.Split(path, "/")
@@ -226,7 +226,7 @@ func resolvePath(path string, config Config) string {
 	return path
 }
 
-func handleRedirects(URL *url.URL, config Config, conn net.Conn, logEntry *LogEntry) {
+func handleRedirects(URL *url.URL, config UserConfig, conn net.Conn, logEntry *LogEntry) {
 	handleRedirectsInner(URL, config.TempRedirects, 30, conn, logEntry)
 	handleRedirectsInner(URL, config.PermRedirects, 31, conn, logEntry)
 }
@@ -252,7 +252,7 @@ func handleRedirectsInner(URL *url.URL, redirects map[string]string, status int,
 	}
 }
 
-func serveDirectory(URL *url.URL, path string, logEntry *LogEntry, conn net.Conn, config Config) {
+func serveDirectory(URL *url.URL, path string, logEntry *LogEntry, conn net.Conn, config UserConfig) {
 	// Redirect to add trailing slash if missing
 	// (otherwise relative links don't work properly)
 	if !strings.HasSuffix(URL.Path, "/") {
@@ -281,7 +281,7 @@ func serveDirectory(URL *url.URL, path string, logEntry *LogEntry, conn net.Conn
 	}
 }
 
-func serveFile(path string, logEntry *LogEntry, conn net.Conn, config Config) {
+func serveFile(path string, logEntry *LogEntry, conn net.Conn, config UserConfig) {
 	// Get MIME type of files
 	ext := filepath.Ext(path)
 	var mimeType string

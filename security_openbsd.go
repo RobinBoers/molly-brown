@@ -11,7 +11,7 @@ import (
 // operations available to the molly brown executable. Please note that (S)CGI
 // processes that molly brown spawns or communicates with are unrestricted
 // and should pledge their own restrictions and unveil their own files.
-func enableSecurityRestrictions(config Config, ui userInfo) error {
+func enableSecurityRestrictions(config SysConfig, ui userInfo) error {
 
 	// Setuid to an unprivileged user
 	err := DropPrivs(ui)

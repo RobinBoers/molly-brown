@@ -7,7 +7,7 @@ import (
 	"os"
 )
 
-func enableSecurityRestrictions(config Config, ui userInfo) error {
+func enableSecurityRestrictions(config SysConfig, ui userInfo) error {
 
 	// Prior to Go 1.6, setuid did not work reliably on Linux
 	// So, absolutely refuse to run as root

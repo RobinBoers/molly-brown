@@ -30,7 +30,7 @@ func main() {
 	}
 
 	// Read config
-	config, err := getConfig(conf_file)
+	sysConfig, userConfig, err := getConfig(conf_file)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -51,5 +51,5 @@ func main() {
 	}
 
 	// Run server and exit
-	os.Exit(launch(config, privInfo))
+	os.Exit(launch(sysConfig, userConfig, privInfo))
 }

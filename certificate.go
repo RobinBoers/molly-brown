@@ -27,7 +27,7 @@ func enforceCertificateValidity(clientCerts []*x509.Certificate, conn net.Conn, 
 	}
 }
 
-func handleCertificateZones(URL *url.URL, clientCerts []*x509.Certificate, config Config, conn net.Conn, logEntry *LogEntry) {
+func handleCertificateZones(URL *url.URL, clientCerts []*x509.Certificate, config UserConfig, conn net.Conn, logEntry *LogEntry) {
 	authorised := true
 	for zone, allowedFingerprints := range config.CertificateZones {
 		matched, err := regexp.Match(zone, []byte(URL.Path))

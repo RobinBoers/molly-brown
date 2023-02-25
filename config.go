@@ -9,195 +9,167 @@ import (
 	"strings"
 )
 
-type Config struct {
+type SysConfig struct {
 	Port                  int
 	Hostname              string
 	CertPath              string
 	KeyPath               string
-	DocBase               string
-	HomeDocBase           string
-	GeminiExt             string
-	DefaultLang           string
-	DefaultEncoding       string
 	AccessLog             string
 	ErrorLog              string
-	ReadMollyFiles        bool
-	TempRedirects         map[string]string
-	PermRedirects         map[string]string
-	MimeOverrides         map[string]string
+	DocBase               string
+	HomeDocBase           string
 	CGIPaths              []string
 	SCGIPaths             map[string]string
-	CertificateZones      map[string][]string
+	ReadMollyFiles        bool
 	AllowTLS12            bool
-	DirectorySort         string
-	DirectorySubdirsFirst bool
-	DirectoryReverse      bool
-	DirectoryTitles       bool
 }
 
-type MollyFile struct {
+type UserConfig struct {
 	GeminiExt             string
+	DefaultLang           string
+	DefaultEncoding       string
 	TempRedirects         map[string]string
 	PermRedirects         map[string]string
 	MimeOverrides         map[string]string
 	CertificateZones      map[string][]string
-	DefaultLang           string
-	DefaultEncoding       string
 	DirectorySort         string
 	DirectorySubdirsFirst bool
 	DirectoryReverse      bool
 	DirectoryTitles       bool
 }
 
-func getConfig(filename string) (Config, error) {
+func getConfig(filename string) (SysConfig, UserConfig, error) {
 
-	var config Config
+	var sysConfig SysConfig
+	var userConfig UserConfig
 
 	// Defaults
-	config.Port = 1965
-	config.Hostname = "localhost"
-	config.CertPath = "cert.pem"
-	config.KeyPath = "key.pem"
-	config.DocBase = "/var/gemini/"
-	config.HomeDocBase = "users"
-	config.GeminiExt = "gmi"
-	config.DefaultLang = ""
-	config.DefaultEncoding = ""
-	config.AccessLog = "access.log"
-	config.ErrorLog = ""
-	config.TempRedirects = make(map[string]string)
-	config.PermRedirects = make(map[string]string)
-	config.CGIPaths = make([]string, 0)
-	config.SCGIPaths = make(map[string]string)
-	config.AllowTLS12 = true
-	config.DirectorySort = "Name"
-	config.DirectorySubdirsFirst = false
+	sysConfig.Port = 1965
+	sysConfig.Hostname = "localhost"
+	sysConfig.CertPath = "cert.pem"
+	sysConfig.KeyPath = "key.pem"
+	sysConfig.AccessLog = "access.log"
+	sysConfig.ErrorLog = ""
+	sysConfig.DocBase = "/var/gemini/"
+	sysConfig.HomeDocBase = "users"
+	sysConfig.CGIPaths = make([]string, 0)
+	sysConfig.SCGIPaths = make(map[string]string)
+	sysConfig.ReadMollyFiles = false
+	sysConfig.AllowTLS12 = true
+
+	userConfig.GeminiExt = "gmi"
+	userConfig.DefaultLang = ""
+	userConfig.DefaultEncoding = ""
+	userConfig.TempRedirects = make(map[string]string)
+	userConfig.PermRedirects = make(map[string]string)
+	userConfig.DirectorySort = "Name"
+	userConfig.DirectorySubdirsFirst = false
 
 	// Return defaults if no filename given
 	if filename == "" {
-		return config, nil
+		return sysConfig, userConfig, nil
 	}
 
 	// Attempt to overwrite defaults from file
-	_, err := toml.DecodeFile(filename, &config)
+	_, err := toml.DecodeFile(filename, &sysConfig)
 	if err != nil {
-		return config, err
+		return sysConfig, userConfig, err
+	}
+	_, err = toml.DecodeFile(filename, &userConfig)
+	if err != nil {
+		return sysConfig, userConfig, err
 	}
 
 	// Force hostname to lowercase
-	config.Hostname = strings.ToLower(config.Hostname)
+	sysConfig.Hostname = strings.ToLower(sysConfig.Hostname)
 
 	// Validate pseudo-enums
-	switch config.DirectorySort {
-	case "Name", "Size", "Time":
-	default:
-		return config, errors.New("Invalid DirectorySort value.")
+	switch userConfig.DirectorySort {
+		case "Name", "Size", "Time":
+		default:
+			return sysConfig, userConfig, errors.New("Invalid DirectorySort value.")
 	}
 
 	// Absolutise paths
-	config.DocBase, err = filepath.Abs(config.DocBase)
+	sysConfig.DocBase, err = filepath.Abs(sysConfig.DocBase)
 	if err != nil {
-		return config, err
+		return sysConfig, userConfig, err
 	}
-	config.CertPath, err = filepath.Abs(config.CertPath)
+	sysConfig.CertPath, err = filepath.Abs(sysConfig.CertPath)
 	if err != nil {
-		return config, err
+		return sysConfig, userConfig, err
 	}
-	config.KeyPath, err = filepath.Abs(config.KeyPath)
+	sysConfig.KeyPath, err = filepath.Abs(sysConfig.KeyPath)
 	if err != nil {
-		return config, err
+		return sysConfig, userConfig, err
 	}
-	if config.AccessLog != "" && config.AccessLog != "-" {
-		config.AccessLog, err = filepath.Abs(config.AccessLog)
+	if sysConfig.AccessLog != "" && sysConfig.AccessLog != "-" {
+		sysConfig.AccessLog, err = filepath.Abs(sysConfig.AccessLog)
 		if err != nil {
-			return config, err
+			return sysConfig, userConfig, err
 		}
 	}
-	if config.ErrorLog != "" {
-		config.ErrorLog, err = filepath.Abs(config.ErrorLog)
+	if sysConfig.ErrorLog != "" {
+		sysConfig.ErrorLog, err = filepath.Abs(sysConfig.ErrorLog)
 		if err != nil {
-			return config, err
+			return sysConfig, userConfig, err
 		}
 	}
 
 	// Absolutise CGI paths
-	for index, cgiPath := range config.CGIPaths {
+	for index, cgiPath := range sysConfig.CGIPaths {
 		if !filepath.IsAbs(cgiPath) {
-			config.CGIPaths[index] = filepath.Join(config.DocBase, cgiPath)
+			sysConfig.CGIPaths[index] = filepath.Join(sysConfig.DocBase, cgiPath)
 		}
 	}
 
 	// Expand CGI paths
 	var cgiPaths []string
-	for _, cgiPath := range config.CGIPaths {
+	for _, cgiPath := range sysConfig.CGIPaths {
 		expandedPaths, err := filepath.Glob(cgiPath)
 		if err != nil {
-			return config, errors.New("Error expanding CGI path glob " + cgiPath + ": " + err.Error())
+			return sysConfig, userConfig, errors.New("Error expanding CGI path glob " + cgiPath + ": " + err.Error())
 		}
 		cgiPaths = append(cgiPaths, expandedPaths...)
 	}
-	config.CGIPaths = cgiPaths
+	sysConfig.CGIPaths = cgiPaths
 
 	// Absolutise SCGI paths
-	for index, scgiPath := range config.SCGIPaths {
-		config.SCGIPaths[index], err = filepath.Abs( scgiPath)
+	for index, scgiPath := range sysConfig.SCGIPaths {
+		sysConfig.SCGIPaths[index], err = filepath.Abs( scgiPath)
 		if err != nil {
-			return config, err
+			return sysConfig, userConfig, err
 		}
 	}
 
 	// Validate redirects
-	for _, value := range config.TempRedirects {
+	for _, value := range userConfig.TempRedirects {
 		if strings.Contains(value, "://") && !strings.HasPrefix(value, "gemini://") {
-			return config, errors.New("Invalid cross-protocol redirect to " + value)
+			return sysConfig, userConfig, errors.New("Invalid cross-protocol redirect to " + value)
 		}
 	}
-	for _, value := range config.PermRedirects {
+	for _, value := range userConfig.PermRedirects {
 		if strings.Contains(value, "://") && !strings.HasPrefix(value, "gemini://") {
-			return config, errors.New("Ignoring cross-protocol redirect to " + value)
+			return sysConfig, userConfig, errors.New("Ignoring cross-protocol redirect to " + value)
 		}
 	}
 
-	return config, nil
+	return sysConfig, userConfig, nil
 }
 
-func parseMollyFiles(path string, config *Config) {
+func parseMollyFiles(path string, docBase string, config UserConfig) UserConfig {
 	// Replace config variables which use pointers with new ones,
 	// so that changes made here aren't reflected everywhere.
-	newTempRedirects := make(map[string]string)
-	for key, value := range config.TempRedirects {
-		newTempRedirects[key] = value
-	}
-	config.TempRedirects = newTempRedirects
-	newPermRedirects := make(map[string]string)
-	for key, value := range config.PermRedirects {
-		newPermRedirects[key] = value
-	}
-	config.PermRedirects = newPermRedirects
-	newMimeOverrides := make(map[string]string)
-	for key, value := range config.MimeOverrides {
-		newMimeOverrides[key] = value
-	}
-	config.MimeOverrides = newMimeOverrides
-	newCertificateZones := make(map[string][]string)
-	for key, value := range config.CertificateZones {
-		newCertificateZones[key] = value
-	}
-	config.CertificateZones = newCertificateZones
-	// Initialise MollyFile using main Config
-	var mollyFile MollyFile
-	mollyFile.GeminiExt = config.GeminiExt
-	mollyFile.DefaultLang = config.DefaultLang
-	mollyFile.DefaultEncoding = config.DefaultEncoding
-	mollyFile.DirectorySort = config.DirectorySort
-	mollyFile.DirectorySubdirsFirst = config.DirectorySubdirsFirst
-	mollyFile.DirectoryReverse = config.DirectoryReverse
-	mollyFile.DirectoryTitles = config.DirectoryTitles
+	config.TempRedirects = make(map[string]string)
+	config.PermRedirects = make(map[string]string)
+	config.MimeOverrides = make(map[string]string)
+	config.CertificateZones = make(map[string][]string)
+
 	// Build list of directories to check
 	var dirs []string
 	dirs = append(dirs, path)
 	for {
-		if path == filepath.Clean(config.DocBase) {
+		if path == filepath.Clean(docBase) {
 			break
 		}
 		subpath := filepath.Dir(path)
@@ -219,38 +191,28 @@ func parseMollyFiles(path string, config *Config) {
 			continue
 		}
 		// If the file exists and we can read it, try to parse it
-		_, err = toml.DecodeFile(mollyPath, &mollyFile)
+		_, err = toml.DecodeFile(mollyPath, &config)
 		if err != nil {
 			log.Println("Error parsing .molly file " + mollyPath + ": " + err.Error())
 			continue
 		}
-		// Overwrite main Config using MollyFile
-		config.GeminiExt = mollyFile.GeminiExt
-		config.DefaultLang = mollyFile.DefaultLang
-		config.DefaultEncoding = mollyFile.DefaultEncoding
-		config.DirectorySort = mollyFile.DirectorySort
-		config.DirectorySubdirsFirst = mollyFile.DirectorySubdirsFirst
-		config.DirectoryReverse = mollyFile.DirectoryReverse
-		config.DirectoryTitles = mollyFile.DirectoryTitles
-		for key, value := range mollyFile.TempRedirects {
+
+		for key, value := range config.TempRedirects {
 			if strings.Contains(value, "://") && !strings.HasPrefix(value, "gemini://") {
 				log.Println("Ignoring cross-protocol redirect to " + value + " in .molly file " + mollyPath)
 				continue
 			}
 			config.TempRedirects[key] = value
 		}
-		for key, value := range mollyFile.PermRedirects {
+		for key, value := range config.PermRedirects {
 			if strings.Contains(value, "://") && !strings.HasPrefix(value, "gemini://") {
 				log.Println("Ignoring cross-protocol redirect to " + value + " in .molly file " + mollyPath)
 				continue
 			}
 			config.PermRedirects[key] = value
 		}
-		for key, value := range mollyFile.MimeOverrides {
-			config.MimeOverrides[key] = value
-		}
-		for key, value := range mollyFile.CertificateZones {
-			config.CertificateZones[key] = value
-		}
+
 	}
+
+	return config
 }

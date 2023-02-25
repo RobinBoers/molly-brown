@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-func generateDirectoryListing(URL *url.URL, path string, config Config) (string, error) {
+func generateDirectoryListing(URL *url.URL, path string, config UserConfig) (string, error) {
 	var listing string
 	files, err := ioutil.ReadDir(path)
 	if err != nil {
@@ -82,7 +82,7 @@ func generateDirectoryListing(URL *url.URL, path string, config Config) (string,
 	return listing, nil
 }
 
-func generatePrettyFileLabel(info os.FileInfo, path string, config Config) string {
+func generatePrettyFileLabel(info os.FileInfo, path string, config UserConfig) string {
 	var size string
 	if info.IsDir() {
 		size = "        "
