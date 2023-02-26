@@ -71,90 +71,121 @@ func getConfig(filename string) (SysConfig, UserConfig, error) {
 	}
 
 	// Attempt to overwrite defaults from file
-	_, err := toml.DecodeFile(filename, &sysConfig)
+	sysConfig, err := readSysConfig(filename, sysConfig)
 	if err != nil {
 		return sysConfig, userConfig, err
 	}
-	_, err = toml.DecodeFile(filename, &userConfig)
+	userConfig, err = readUserConfig(filename, userConfig, true)
 	if err != nil {
 		return sysConfig, userConfig, err
+	}
+	return sysConfig, userConfig, nil
+}
+
+func readSysConfig(filename string, config SysConfig) (SysConfig, error) {
+
+	_, err := toml.DecodeFile(filename, &config)
+	if err != nil {
+		return config, err
 	}
 
 	// Force hostname to lowercase
-	sysConfig.Hostname = strings.ToLower(sysConfig.Hostname)
-
-	// Validate pseudo-enums
-	switch userConfig.DirectorySort {
-		case "Name", "Size", "Time":
-		default:
-			return sysConfig, userConfig, errors.New("Invalid DirectorySort value.")
-	}
+	config.Hostname = strings.ToLower(config.Hostname)
 
 	// Absolutise paths
-	sysConfig.DocBase, err = filepath.Abs(sysConfig.DocBase)
+	config.DocBase, err = filepath.Abs(config.DocBase)
 	if err != nil {
-		return sysConfig, userConfig, err
+		return config, err
 	}
-	sysConfig.CertPath, err = filepath.Abs(sysConfig.CertPath)
+	config.CertPath, err = filepath.Abs(config.CertPath)
 	if err != nil {
-		return sysConfig, userConfig, err
+		return config, err
 	}
-	sysConfig.KeyPath, err = filepath.Abs(sysConfig.KeyPath)
+	config.KeyPath, err = filepath.Abs(config.KeyPath)
 	if err != nil {
-		return sysConfig, userConfig, err
+		return config, err
 	}
-	if sysConfig.AccessLog != "" && sysConfig.AccessLog != "-" {
-		sysConfig.AccessLog, err = filepath.Abs(sysConfig.AccessLog)
+	if config.AccessLog != "" && config.AccessLog != "-" {
+		config.AccessLog, err = filepath.Abs(config.AccessLog)
 		if err != nil {
-			return sysConfig, userConfig, err
+			return config, err
 		}
 	}
-	if sysConfig.ErrorLog != "" {
-		sysConfig.ErrorLog, err = filepath.Abs(sysConfig.ErrorLog)
+	if config.ErrorLog != "" {
+		config.ErrorLog, err = filepath.Abs(config.ErrorLog)
 		if err != nil {
-			return sysConfig, userConfig, err
+			return config, err
 		}
 	}
 
 	// Absolutise CGI paths
-	for index, cgiPath := range sysConfig.CGIPaths {
+	for index, cgiPath := range config.CGIPaths {
 		if !filepath.IsAbs(cgiPath) {
-			sysConfig.CGIPaths[index] = filepath.Join(sysConfig.DocBase, cgiPath)
+			config.CGIPaths[index] = filepath.Join(config.DocBase, cgiPath)
 		}
 	}
 
 	// Expand CGI paths
 	var cgiPaths []string
-	for _, cgiPath := range sysConfig.CGIPaths {
+	for _, cgiPath := range config.CGIPaths {
 		expandedPaths, err := filepath.Glob(cgiPath)
 		if err != nil {
-			return sysConfig, userConfig, errors.New("Error expanding CGI path glob " + cgiPath + ": " + err.Error())
+			return config, errors.New("Error expanding CGI path glob " + cgiPath + ": " + err.Error())
 		}
 		cgiPaths = append(cgiPaths, expandedPaths...)
 	}
-	sysConfig.CGIPaths = cgiPaths
+	config.CGIPaths = cgiPaths
 
 	// Absolutise SCGI paths
-	for index, scgiPath := range sysConfig.SCGIPaths {
-		sysConfig.SCGIPaths[index], err = filepath.Abs( scgiPath)
+	for index, scgiPath := range config.SCGIPaths {
+		config.SCGIPaths[index], err = filepath.Abs( scgiPath)
 		if err != nil {
-			return sysConfig, userConfig, err
+			return config, err
+		}
+	}
+
+	return config, nil
+}
+
+func readUserConfig(filename string, config UserConfig, requireValid bool) (UserConfig, error) {
+
+	_, err := toml.DecodeFile(filename, &config)
+	if err != nil {
+		return config, err
+	}
+
+	// Validate pseudo-enums
+	if requireValid {
+		switch config.DirectorySort {
+			case "Name", "Size", "Time":
+			default:
+				return config, errors.New("Invalid DirectorySort value.")
 		}
 	}
 
 	// Validate redirects
-	for _, value := range userConfig.TempRedirects {
+	for key, value := range config.TempRedirects {
 		if strings.Contains(value, "://") && !strings.HasPrefix(value, "gemini://") {
-			return sysConfig, userConfig, errors.New("Invalid cross-protocol redirect to " + value)
+			if requireValid {
+				return config, errors.New("Invalid cross-protocol redirect to " + value)
+			} else {
+				log.Println("Ignoring cross-protocol redirect to " + value + " in .molly file " + filename)
+				delete(config.TempRedirects, key)
+			}
 		}
 	}
-	for _, value := range userConfig.PermRedirects {
+	for key, value := range config.PermRedirects {
 		if strings.Contains(value, "://") && !strings.HasPrefix(value, "gemini://") {
-			return sysConfig, userConfig, errors.New("Ignoring cross-protocol redirect to " + value)
+			if requireValid {
+				return config, errors.New("Invalid cross-protocol redirect to " + value)
+			} else {
+				log.Println("Ignoring cross-protocol redirect to " + value + " in .molly file " + filename)
+				delete(config.PermRedirects, key)
+			}
 		}
 	}
 
-	return sysConfig, userConfig, nil
+	return config, nil
 }
 
 func parseMollyFiles(path string, docBase string, config UserConfig) UserConfig {
@@ -191,27 +222,11 @@ func parseMollyFiles(path string, docBase string, config UserConfig) UserConfig 
 			continue
 		}
 		// If the file exists and we can read it, try to parse it
-		_, err = toml.DecodeFile(mollyPath, &config)
+		newConfig, err = readUserConfig(mollyPath, config, false)
 		if err != nil {
 			log.Println("Error parsing .molly file " + mollyPath + ": " + err.Error())
 			continue
 		}
-
-		for key, value := range config.TempRedirects {
-			if strings.Contains(value, "://") && !strings.HasPrefix(value, "gemini://") {
-				log.Println("Ignoring cross-protocol redirect to " + value + " in .molly file " + mollyPath)
-				continue
-			}
-			config.TempRedirects[key] = value
-		}
-		for key, value := range config.PermRedirects {
-			if strings.Contains(value, "://") && !strings.HasPrefix(value, "gemini://") {
-				log.Println("Ignoring cross-protocol redirect to " + value + " in .molly file " + mollyPath)
-				continue
-			}
-			config.PermRedirects[key] = value
-		}
-
 	}
 
 	return config
