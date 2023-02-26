@@ -154,6 +154,7 @@ func handleGeminiRequest(conn net.Conn, sysConfig SysConfig, config UserConfig, 
 			log.Println("Error evaluating path " + path + " for symlinks: " + err.Error())
 			conn.Write([]byte("51 Not found!\r\n"))
 			logEntry.Status = 51
+			return
 		}
 		if newPath == path {
 			break
