@@ -222,7 +222,7 @@ func parseMollyFiles(path string, docBase string, config UserConfig) UserConfig 
 			continue
 		}
 		// If the file exists and we can read it, try to parse it
-		newConfig, err = readUserConfig(mollyPath, config, false)
+		config, err = readUserConfig(mollyPath, config, false)
 		if err != nil {
 			log.Println("Error parsing .molly file " + mollyPath + ": " + err.Error())
 			continue
