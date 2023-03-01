@@ -76,6 +76,10 @@ func launch(sysConfig SysConfig, userConfig UserConfig, privInfo userInfo) int {
 		return 1
 	}
 	certx509, err := x509.ParseCertificate(certDer.Bytes)
+	if err != nil {
+		log.Println("Error parsing TLS certificate: " + err.Error())
+		return 1
+	}
 	err = certx509.VerifyHostname(sysConfig.Hostname)
 	if err != nil {
 		log.Println("Invalid TLS certificate: " + err.Error())
