@@ -105,6 +105,9 @@ func launch(sysConfig SysConfig, userConfig UserConfig, privInfo userInfo) int {
 	} else {
 		tlscfg.MinVersion = tls.VersionTLS13
 	}
+	if len(userConfig.CertificateZones) > 0 || sysConfig.ReadMollyFiles {
+		tlscfg.ClientAuth = tls.RequestClientCert
+	}
 
 	// Try to chdir to /, so we don't block any mountpoints
 	// But if we can't for some reason it's no big deal
