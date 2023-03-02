@@ -169,7 +169,7 @@ func handleGeminiRequest(conn net.Conn, sysConfig SysConfig, config UserConfig, 
 		log.Println("Error testing whether path " + path + " is below DocBase: " + err.Error())
 	}
 	if !isSub {
-		log.Println("Refusing to follow simlink from " + rawPath + " outside of DocBase!")
+		log.Println("Refusing to follow symlink from " + rawPath + " outside of DocBase!")
 	}
 	if err != nil || !isSub {
 		conn.Write([]byte("51 Not found!\r\n"))
