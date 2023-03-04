@@ -4,7 +4,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
-	"io"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/signal"
@@ -65,7 +65,7 @@ func launch(sysConfig SysConfig, userConfig UserConfig, privInfo userInfo) int {
 		log.Println("Error opening TLS certificate file: " + err.Error())
 		return 1
 	}
-	certBytes, err := io.ReadAll(certFile)
+	certBytes, err := ioutil.ReadAll(certFile)
 	if err != nil {
 		log.Println("Error reading TLS certificate file: " + err.Error())
 		return 1
