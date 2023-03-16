@@ -100,14 +100,6 @@ func handleGeminiRequest(conn net.Conn, sysConfig SysConfig, config UserConfig, 
 		return
 	}
 
-	// Check whether this URL is mapped to an SCGI app
-	for scgiPath, scgiSocket := range sysConfig.SCGIPaths {
-		if strings.HasPrefix(URL.Path, scgiPath) {
-			handleSCGI(URL, scgiPath, scgiSocket, sysConfig, &logEntry, conn)
-			return
-		}
-	}
-
 	// Resolve URI path to actual filesystem path
 	path := resolvePath(URL.Path, sysConfig)
 
@@ -124,6 +116,24 @@ func handleGeminiRequest(conn net.Conn, sysConfig SysConfig, config UserConfig, 
 		}
 		handleRedirects(URL, config, conn, &logEntry)
 		if logEntry.Status != 0 {
+			return
+		}
+	}
+
+	// Check whether this URL is in a configured CGI path
+	for _, cgiPath := range sysConfig.CGIPaths {
+		if strings.HasPrefix(path, cgiPath) {
+			handleCGI(sysConfig, path, cgiPath, URL, &logEntry, conn)
+			if logEntry.Status != 0 {
+				return
+			}
+		}
+	}
+
+	// Check whether this URL is mapped to an SCGI app
+	for scgiPath, scgiSocket := range sysConfig.SCGIPaths {
+		if strings.HasPrefix(URL.Path, scgiPath) {
+			handleSCGI(URL, scgiPath, scgiSocket, sysConfig, &logEntry, conn)
 			return
 		}
 	}
@@ -183,16 +193,6 @@ func handleGeminiRequest(conn net.Conn, sysConfig SysConfig, config UserConfig, 
 		conn.Write([]byte("51 Not found!\r\n"))
 		logEntry.Status = 51
 		return
-	}
-
-	// Check whether this URL is in a configured CGI path
-	for _, cgiPath := range sysConfig.CGIPaths {
-		if strings.HasPrefix(path, cgiPath) {
-			handleCGI(sysConfig, path, cgiPath, URL, &logEntry, conn)
-			if logEntry.Status != 0 {
-				return
-			}
-		}
 	}
 
 	// Finally, serve a simple static file or directory
