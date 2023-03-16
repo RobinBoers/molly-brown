@@ -36,7 +36,7 @@ func isSubdir(subdir, superdir string) (bool, error) {
     return false, nil
 }
 
-func handleGeminiRequest(conn net.Conn, sysConfig SysConfig, config UserConfig, accessLogEntries chan LogEntry, wg *sync.WaitGroup) {
+func handleGeminiRequest(conn net.Conn, sysConfig SysConfig, config UserConfig, accessLogEntries chan LogEntry, rl *RateLimiter, wg *sync.WaitGroup) {
 	defer conn.Close()
 	defer wg.Done()
 	var tlsConn (*tls.Conn) = conn.(*tls.Conn)
@@ -47,6 +47,15 @@ func handleGeminiRequest(conn net.Conn, sysConfig SysConfig, config UserConfig, 
 	logEntry.Status = 0
 	if accessLogEntries != nil {
 		defer func() { accessLogEntries <- logEntry }()
+	}
+
+	// Enforce rate limiting
+	noPort := logEntry.RemoteAddr.String()
+	noPort = noPort[0:strings.LastIndex(noPort, ":")]
+	if !rl.Allowed(noPort) {
+		conn.Write([]byte("44 10 second cool down, please!\r\n"))
+		logEntry.Status = 44
+		return
 	}
 
 	// Read request

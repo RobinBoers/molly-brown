@@ -159,11 +159,12 @@ func launch(sysConfig SysConfig, userConfig UserConfig, privInfo userInfo) int {
 	// Infinite serve loop (SIGTERM breaks out)
 	running := true
 	var wg sync.WaitGroup
+	rl := newRateLimiter(100, 5)
 	for running {
 		conn, err := listener.Accept()
 		if err == nil {
 			wg.Add(1)
-			go handleGeminiRequest(conn, sysConfig, userConfig, accessLogEntries, &wg)
+			go handleGeminiRequest(conn, sysConfig, userConfig, accessLogEntries, &rl, &wg)
 		} else {
 			select {
 			case <-shutdown:
