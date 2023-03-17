@@ -159,7 +159,7 @@ func launch(sysConfig SysConfig, userConfig UserConfig, privInfo userInfo) int {
 	// Infinite serve loop (SIGTERM breaks out)
 	running := true
 	var wg sync.WaitGroup
-	rl := newRateLimiter(100, 5)
+	rl := newRateLimiter(sysConfig.RateLimitAverage, sysConfig.RateLimitBurst)
 	for running {
 		conn, err := listener.Accept()
 		if err == nil {

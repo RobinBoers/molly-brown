@@ -22,6 +22,9 @@ type SysConfig struct {
 	SCGIPaths             map[string]string
 	ReadMollyFiles        bool
 	AllowTLS12            bool
+	RateLimitEnable       bool
+	RateLimitAverage      int
+	RateLimitBurst        int
 }
 
 type UserConfig struct {
@@ -56,6 +59,9 @@ func getConfig(filename string) (SysConfig, UserConfig, error) {
 	sysConfig.SCGIPaths = make(map[string]string)
 	sysConfig.ReadMollyFiles = false
 	sysConfig.AllowTLS12 = true
+	sysConfig.RateLimitEnable = false
+	sysConfig.RateLimitAverage = 1
+	sysConfig.RateLimitBurst = 10
 
 	userConfig.GeminiExt = "gmi"
 	userConfig.DefaultLang = ""

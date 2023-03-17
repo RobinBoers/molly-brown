@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"sync"
 	"time"
 )
@@ -9,19 +8,18 @@ import (
 type RateLimiter struct {
 	mu sync.Mutex
 	bucket map[string]int
-	capacity int
 	rate int
+	burst int
 }
 
-func newRateLimiter(capacity int, rate int) RateLimiter {
+func newRateLimiter(rate int, burst int) RateLimiter {
 	var rl = new(RateLimiter)
 	rl.bucket = make(map[string]int)
-	rl.capacity = capacity
 	rl.rate = rate
+	rl.burst = burst
 	// Leak periodically
 	go func () {
 		for(true) {
-			fmt.Println(rl.bucket)
 			rl.mu.Lock()
 			for addr, drips := range rl.bucket {
 				if drips <= rate {
@@ -45,7 +43,7 @@ func  (rl *RateLimiter) Allowed(addr string) bool {
 		rl.bucket[addr] = 1
 		return true
 	}
-	if drips == rl.capacity {
+	if drips == rl.burst {
 		return false
 	}
 	rl.bucket[addr] = drips + 1
