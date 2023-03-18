@@ -53,8 +53,9 @@ func handleGeminiRequest(conn net.Conn, sysConfig SysConfig, config UserConfig, 
 	if sysConfig.RateLimitEnable {
 		noPort := logEntry.RemoteAddr.String()
 		noPort = noPort[0:strings.LastIndex(noPort, ":")]
-		if !rl.Allowed(noPort) {
-			conn.Write([]byte("44 10 second cool down, please!\r\n"))
+		drips, allowed := rl.Allowed(noPort)
+		if !allowed {
+			conn.Write([]byte("44 " + strconv.Itoa(drips) + " second cool down, please!\r\n"))
 			logEntry.Status = 44
 			return
 		}

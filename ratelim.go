@@ -35,18 +35,16 @@ func newRateLimiter(rate int, burst int) RateLimiter {
 	return *rl
 }
 
-func  (rl *RateLimiter) Allowed(addr string) bool {
+func  (rl *RateLimiter) Allowed(addr string) (int, bool) {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
 	drips, present := rl.bucket[addr]
 	if !present {
 		rl.bucket[addr] = 1
-		return true
+		return 1, true
 	}
-	if drips == rl.burst {
-		return false
-	}
-	rl.bucket[addr] = drips + 1
-	return true
+	drips += 1
+	rl.bucket[addr] = drips
+	return drips, drips < rl.burst
 }
 
