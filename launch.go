@@ -140,7 +140,9 @@ func launch(sysConfig SysConfig, userConfig UserConfig, privInfo userInfo) int {
 		go func() {
 			for {
 				entry := <-accessLogEntries
-				writeLogEntry(accessLogFile, entry)
+				if entry.Status != 0 {
+					writeLogEntry(accessLogFile, entry)
+				}
 			}
 		}()
 	}
@@ -159,7 +161,7 @@ func launch(sysConfig SysConfig, userConfig UserConfig, privInfo userInfo) int {
 	// Infinite serve loop (SIGTERM breaks out)
 	running := true
 	var wg sync.WaitGroup
-	rl := newRateLimiter(sysConfig.RateLimitAverage, sysConfig.RateLimitBurst)
+	rl := newRateLimiter(sysConfig.RateLimitAverage, sysConfig.RateLimitSoft, sysConfig.RateLimitHard)
 	for running {
 		conn, err := listener.Accept()
 		if err == nil {
