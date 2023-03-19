@@ -56,6 +56,7 @@ func handleGeminiRequest(conn net.Conn, sysConfig SysConfig, config UserConfig, 
 		limited := rl.hardLimited(noPort)
 		if limited {
 			conn.Close()
+			return
 		}
 		delay, limited := rl.softLimited(noPort)
 		if limited {
