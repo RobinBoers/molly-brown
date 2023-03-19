@@ -204,17 +204,28 @@ func handleGeminiRequest(conn net.Conn, sysConfig SysConfig, config UserConfig, 
 }
 
 func readRequest(conn net.Conn, logEntry *LogEntry) (*url.URL, error) {
+	err := conn.SetReadDeadline(time.Now().Add(30 * time.Second))
+	if err != nil {
+		log.Println("Error setting read deadline: " + err.Error())
+		return nil, err
+	}
+
 	reader := bufio.NewReaderSize(conn, 1024)
 	request, overflow, err := reader.ReadLine()
+
 	if overflow {
 		conn.Write([]byte("59 Request too long!\r\n"))
 		logEntry.Status = 59
 		return nil, errors.New("Request too long")
 	} else if err != nil {
-		log.Println("Error reading request from " + conn.RemoteAddr().String() + ": " + err.Error())
-		conn.Write([]byte("40 Unknown error reading request!\r\n"))
+		if errors.Is(err, os.ErrDeadlineExceeded) {
+			conn.Write([]byte("40 Request timed out!\r\n"))
+		} else {
+			log.Println("Error reading request from " + conn.RemoteAddr().String() + ": " + err.Error())
+			conn.Write([]byte("40 Unknown error reading request!\r\n"))
+		}
 		logEntry.Status = 40
-		return nil, errors.New("Error reading request")
+		return nil, err
 	}
 
 	// Parse request as URL
