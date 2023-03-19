@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"sync"
+	"strconv"
 	"time"
 )
 
@@ -10,6 +11,7 @@ type RateLimiter struct {
 	mu sync.Mutex
 	bucket map[string]int
 	bans map[string]time.Time
+	banCounts map[string]int
 	rate int
 	softLimit int
 	hardLimit int
@@ -19,6 +21,7 @@ func newRateLimiter(rate int, softLimit int, hardLimit int) RateLimiter {
 	var rl = new(RateLimiter)
 	rl.bucket = make(map[string]int)
 	rl.bans = make(map[string]time.Time)
+	rl.banCounts = make(map[string]int)
 	rl.rate = rate
 	rl.softLimit = softLimit
 	rl.hardLimit = hardLimit
@@ -62,10 +65,18 @@ func  (rl *RateLimiter) softLimited(addr string) (int, bool) {
 	drips += 1
 	rl.bucket[addr] = drips
 	if drips > rl.hardLimit {
+		banCount, present := rl.banCounts[addr]
+		if present {
+			banCount += 1
+		} else {
+			banCount = 1
+		}
+		rl.banCounts[addr] = banCount
+		banDuration := 1 << (banCount - 1)
 		now := time.Now()
-		expiry := now.Add(time.Hour)
+		expiry := now.Add(time.Duration(banDuration)*time.Hour)
 		rl.bans[addr] = expiry
-		log.Println("Banning " + addr + "for 1 hour due to ignoring rate limiting.")
+		log.Println("Banning " + addr + " for " + strconv.Itoa(banDuration) + " hours due to ignoring rate limiting.")
 	}
 	return drips, drips > rl.softLimit
 }
