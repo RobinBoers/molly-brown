@@ -73,15 +73,23 @@ func handleCGI(config SysConfig, path string, cgiPath string, URL *url.URL, logE
 		return
 	}
 	// Extract response header
-	header, _, err := bufio.NewReader(strings.NewReader(string(response))).ReadLine()
-	status, err2 := strconv.Atoi(strings.Fields(string(header))[0])
-	if err != nil || err2 != nil {
+	responseString := string(response)
+	if len(responseString) == 0 {
+		log.Println("Received no response from CGI process " + path)
+		conn.Write([]byte("42 CGI error!\r\n"))
+		logEntry.Status = 42
+		return
+	}
+	header, _, _ := bufio.NewReader(strings.NewReader(string(response))).ReadLine()
+	status, err := strconv.Atoi(strings.Fields(string(header))[0])
+	if err != nil {
 		log.Println("Unable to parse first line of output from CGI process " + path + " as valid Gemini response header.  Line was: " + string(header))
 		conn.Write([]byte("42 CGI error!\r\n"))
 		logEntry.Status = 42
 		return
 	}
 	logEntry.Status = status
+
 	// Write response
 	conn.Write(response)
 }
