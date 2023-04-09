@@ -409,7 +409,8 @@ func serveFile(path string, info os.FileInfo, logEntry *LogEntry, conn net.Conn,
 		// Prepare to close the connection *without* TLS Close Notify so the client
 		// knows something has gone wrong!
 		tlsConn, _ := conn.(*tls.Conn)
-		tcpConn := tlsConn.NetConn()
+		netConn := tlsConn.NetConn()
+		tcpConn := netConn.(*net.TCPConn)
 		remoteAddr := conn.RemoteAddr().String()
 		if errors.Is(err, os.ErrDeadlineExceeded) {
 			log.Println("Writing to " + remoteAddr + " timed out.")
