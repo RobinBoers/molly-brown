@@ -216,7 +216,7 @@ func handleGeminiRequest(conn net.Conn, sysConfig SysConfig, config UserConfig, 
 	if info.IsDir() {
 		serveDirectory(URL, path, &logEntry, conn, config)
 	} else {
-		serveFile(path, &logEntry, conn, config)
+		serveFile(path, info, &logEntry, conn, config)
 	}
 }
 
@@ -316,7 +316,7 @@ func serveDirectory(URL *url.URL, path string, logEntry *LogEntry, conn net.Conn
 	index_path := filepath.Join(path, "index."+config.GeminiExt)
 	index_info, err := os.Stat(index_path)
 	if err == nil && uint64(index_info.Mode().Perm())&0444 == 0444 {
-		serveFile(index_path, logEntry, conn, config)
+		serveFile(index_path, index_info, logEntry, conn, config)
 		// Serve a generated listing
 	} else {
 		listing, err := generateDirectoryListing(URL, path, config)
@@ -332,7 +332,7 @@ func serveDirectory(URL *url.URL, path string, logEntry *LogEntry, conn net.Conn
 	}
 }
 
-func serveFile(path string, logEntry *LogEntry, conn net.Conn, config UserConfig) {
+func serveFile(path string, info os.FileInfo, logEntry *LogEntry, conn net.Conn, config UserConfig) {
 	// Get MIME type of files
 	ext := filepath.Ext(path)
 	var mimeType string
@@ -386,7 +386,42 @@ func serveFile(path string, logEntry *LogEntry, conn net.Conn, config UserConfig
 		mimeType += "; lang=" + config.DefaultLang
 	}
 
+	// Derive a maximum allowed download time from the filesyize.
+	// Assume non-malicious clients can manage an average of 0.5 KB/s or better.
+	// But always allow at least 30 seconds
+	allowedTime := int(info.Size() / 512)
+	if allowedTime < 30 {
+		allowedTime = 30
+	}
+	fmt.Println("Allowed time: " + strconv.Itoa(allowedTime))
+	err = conn.SetWriteDeadline(time.Now().Add(time.Duration(allowedTime) * time.Second))
+	if err != nil {
+		log.Println("Error setting write deadline: " + err.Error())
+		conn.Write([]byte("40 Error!\r\n"))
+		logEntry.Status = 40
+		return
+	}
+
+	// Send response
 	conn.Write([]byte(fmt.Sprintf("20 %s\r\n", mimeType)))
-	io.Copy(conn, f)
+	_, err = io.Copy(conn, f)
+	if err != nil {
+		// Prepare to close the connection *without* TLS Close Notify so the client
+		// knows something has gone wrong!
+		tlsConn, _ := conn.(*tls.Conn)
+		tcpConn := tlsConn.NetConn()
+		remoteAddr := conn.RemoteAddr().String()
+		if errors.Is(err, os.ErrDeadlineExceeded) {
+			log.Println("Writing to " + remoteAddr + " timed out.")
+			// Make sure Close() below takes immediate effect in
+			// the case of a timeout as a defence against
+			// socket exhaustion attacks
+			tcpConn.SetLinger(0)
+		} else {
+			log.Println("Error writing response to " + remoteAddr + ": " + err.Error())
+		}
+		tcpConn.Close()
+		return
+	}
 	logEntry.Status = 20
 }
