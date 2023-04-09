@@ -393,7 +393,6 @@ func serveFile(path string, info os.FileInfo, logEntry *LogEntry, conn net.Conn,
 	if allowedTime < 30 {
 		allowedTime = 30
 	}
-	fmt.Println("Allowed time: " + strconv.Itoa(allowedTime))
 	err = conn.SetWriteDeadline(time.Now().Add(time.Duration(allowedTime) * time.Second))
 	if err != nil {
 		log.Println("Error setting write deadline: " + err.Error())
