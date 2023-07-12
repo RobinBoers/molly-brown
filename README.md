@@ -262,6 +262,8 @@ instead of the default "Directory listing" title.
 The following options allow users to configure various aspects of the
 directory listing:
 
+* `DirectoryListing` (boolean): if true, enable directory listing; if false,
+  return 51 Not found (default value true)
 * `DirectorySort`: A string specifying how to sort files in
   automatically generated directory listings.  Must be one of "Name",
   "Size" or "Time" (default value "Name").

@@ -36,6 +36,7 @@ type UserConfig struct {
 	PermRedirects         map[string]string
 	MimeOverrides         map[string]string
 	CertificateZones      map[string][]string
+	DirectoryListing      bool
 	DirectorySort         string
 	DirectorySubdirsFirst bool
 	DirectoryReverse      bool
@@ -70,6 +71,7 @@ func getConfig(filename string) (SysConfig, UserConfig, error) {
 	userConfig.DefaultEncoding = ""
 	userConfig.TempRedirects = make(map[string]string)
 	userConfig.PermRedirects = make(map[string]string)
+	userConfig.DirectoryListing = true
 	userConfig.DirectorySort = "Name"
 	userConfig.DirectorySubdirsFirst = false
 

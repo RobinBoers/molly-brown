@@ -318,7 +318,7 @@ func serveDirectory(URL *url.URL, path string, logEntry *LogEntry, conn net.Conn
 	if err == nil && uint64(index_info.Mode().Perm())&0444 == 0444 {
 		serveFile(index_path, index_info, logEntry, conn, config)
 		// Serve a generated listing
-	} else {
+	} else if config.DirectoryListing {
 		listing, err := generateDirectoryListing(URL, path, config)
 		if err != nil {
 			log.Println("Error generating listing for directory " + path + ": " + err.Error())
@@ -329,6 +329,9 @@ func serveDirectory(URL *url.URL, path string, logEntry *LogEntry, conn net.Conn
 		conn.Write([]byte("20 text/gemini\r\n"))
 		logEntry.Status = 20
 		conn.Write([]byte(listing))
+	} else {
+		conn.Write([]byte("51 Not found!\r\n"))
+		logEntry.Status = 51
 	}
 }
 
