@@ -158,14 +158,21 @@ func handleGeminiRequest(conn net.Conn, sysConfig SysConfig, config UserConfig, 
 	// Okay, at this point we really are committed to looking on disk for `path`.
 	// Make sure it exists, and is world readable, and if it's a symbolic link,
 	// follow it and check these things again!
+	// If the file doesn't exist and doesn't have the .gmi extension, check all of
+	// these things yet again, but this time with the .gmi extension.
 	rawPath := path
 	var info os.FileInfo
 	for {
 		info, err = os.Stat(path)
 		if os.IsNotExist(err) || os.IsPermission(err) {
-			conn.Write([]byte("51 Not found!\r\n"))
-			logEntry.Status = 51
-			return
+			if !strings.HasSuffix(path, ".gmi") {
+				path = Sprintf("%s.gmi", path);
+				break
+			} else {
+				conn.Write([]byte("51 Not found!\r\n"))
+				logEntry.Status = 51
+				return
+			}
 		} else if err != nil {
 			log.Println("Error getting info for file " + path + ": " + err.Error())
 			conn.Write([]byte("40 Temporary failure!\r\n"))
